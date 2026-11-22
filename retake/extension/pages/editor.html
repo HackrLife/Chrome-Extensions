@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Retake editor</title>
+    <link rel="stylesheet" href="../core/tokens.css" />
+    <link rel="stylesheet" href="editor.css" />
+  </head>
+  <body>
+    <header class="appbar">
+      <a href="library.html" id="logo" title="My recordings" aria-label="My recordings"></a>
+      <input id="title" class="title-in" aria-label="Recording title" spellcheck="false" />
+      <span id="saved" class="chip saved"></span>
+      <div class="spacer"></div>
+      <button class="iconbtn" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo"></button>
+      <button class="iconbtn" id="redo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo"></button>
+      <a class="btn outline" id="lib" href="library.html"></a>
+      <button class="btn dark" id="export"></button>
+    </header>
+    <main class="work">
+      <section class="stage" id="stage">
+        <div class="canvas-wrap" id="canvasWrap"><canvas id="preview"></canvas><div id="loading" class="loading">Loading recording…</div></div>
+        <div class="transport">
+          <button class="iconbtn" id="toStart" title="Back to start" aria-label="Back to start"></button>
+          <button class="playbtn" id="play" aria-label="Play"></button>
+          <span class="time"><b id="now">0:00.0</b><span class="muted" id="dur"> / 0:00</span></span>
+        </div>
+      </section>
+      <aside class="inspector" id="inspector"></aside>
+    </main>
+    <section class="timeline" id="timeline">
+      <div class="addrow" id="addrow"></div>
+      <div class="tracks" id="tracks">
+        <div class="ruler" id="ruler"></div>
+        <div class="lane-label" style="top:36px">Video</div>
+        <div class="track video" id="videoTrack"></div>
+        <div class="lane-label" id="calloutLabel">Callouts</div>
+        <div class="track callouts" id="calloutTrack"></div>
+        <div class="lane-label" id="voiceLabel">Voice</div>
+        <canvas class="track voice" id="voiceTrack"></canvas>
+        <div class="trimshade left" id="shadeL"></div>
+        <div class="trimshade right" id="shadeR"></div>
+        <div class="trimhandle" id="trimL" title="Drag to trim the start"><i></i></div>
+        <div class="trimhandle" id="trimR" title="Drag to trim the end"><i></i></div>
+        <div class="playhead" id="playhead"><span></span></div>
+      </div>
+    </section>
+    <video id="video" playsinline preload="auto"></video>
+    <div id="modal"></div>
+    <script type="module" src="editor.js"></script>
+  </body>
+</html>

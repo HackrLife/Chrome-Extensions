@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to Retake</title>
+    <link rel="stylesheet" href="../core/tokens.css" />
+    <link rel="stylesheet" href="page.css" />
+  </head>
+  <body>
+    <div class="top"><span id="logo"></span><span class="title">Retake</span>
+      <div class="right"><a class="btn outline" style="height:38px;font-size:13px;text-decoration:none" href="library.html">My recordings</a><a class="btn outline" style="height:38px;font-size:13px;text-decoration:none" href="help.html">Help</a></div>
+    </div>
+    <div class="wrap">
+      <div class="hero">
+        <h1>Record, fix, polish and export. All in your browser.</h1>
+        <p>Retake is free. Nothing you record leaves this computer.</p>
+      </div>
+      <div class="flow" id="flow"></div>
+
+      <h2 id="permissions">Set up in one minute</h2>
+      <div class="card">
+        <div class="bubble" style="background:var(--rec-soft);color:var(--rec)" data-icon="mic"></div>
+        <div class="body"><h3>Microphone and camera</h3><p>So you can talk over your demo and show the camera bubble. Chrome asks once; Retake only uses them while you record.</p></div>
+        <div id="av-status"></div>
+      </div>
+      <div class="card">
+        <div class="bubble" style="background:var(--accent-soft);color:var(--accent)" data-icon="pen"></div>
+        <div class="body"><h3>Keep your tools on screen when you change pages <span class="small">(optional)</span></h3><p>Without this, the drawing tools and control bar disappear when the recorded tab loads a new page; you can bring them back from the Retake icon. Chrome describes this as reading and changing data on websites. Retake never reads page content or sends anything anywhere.</p></div>
+        <div id="host-status"></div>
+      </div>
+      <div class="card">
+        <div class="bubble" style="background:var(--bg);color:var(--ink)" data-icon="pin"></div>
+        <div class="body"><h3>Pin Retake to your toolbar</h3><p>Click the puzzle-piece icon at the top right of Chrome, then the pin next to Retake.</p></div>
+      </div>
+
+      <h2>Keyboard shortcuts</h2>
+      <table class="keys">
+        <tr><td>Pause or resume</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>K</kbd></td></tr>
+        <tr><td>Retake the last part</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>U</kbd></td></tr>
+        <tr><td>Drawing tools on or off</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>D</kbd></td></tr>
+        <tr><td>Finish and open the editor</td><td><kbd>Alt</kbd> + <kbd>Shift</kbd> + <kbd>S</kbd></td></tr>
+      </table>
+      <p class="small" style="margin-top:10px">On a Mac, Alt is the Option key. Change shortcuts at chrome://extensions/shortcuts.</p>
+    </div>
+    <script type="module" src="welcome.js"></script>
+  </body>
+</html>

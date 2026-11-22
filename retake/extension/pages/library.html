@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>My recordings · Retake</title>
+    <link rel="stylesheet" href="../core/tokens.css" />
+    <link rel="stylesheet" href="library.css" />
+  </head>
+  <body>
+    <header class="appbar">
+      <span id="logo"></span>
+      <span class="title">My recordings</span>
+      <label class="search"><span id="searchIcon"></span><input id="q" placeholder="Search recordings" aria-label="Search recordings" /></label>
+      <div class="spacer"></div>
+      <label class="chip sortchip"><select id="sort" aria-label="Sort"><option value="new">Newest first</option><option value="old">Oldest first</option><option value="long">Longest first</option><option value="big">Largest first</option></select><span id="sortIcon"></span></label>
+      <a class="chip" href="help.html" id="helpLink"></a>
+      <button class="btn rec" id="newRec"></button>
+    </header>
+    <main class="wrap">
+      <section class="storage" id="storage"></section>
+      <section class="grid" id="grid"></section>
+    </main>
+    <input type="file" id="restoreFile" accept=".zip,application/zip" hidden />
+    <div id="modal"></div>
+    <script type="module" src="library.js"></script>
+  </body>
+</html>

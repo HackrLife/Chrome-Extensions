@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "Retake: Screen Recorder",
+  "short_name": "Retake",
+  "version": "0.1.0",
+  "description": "Free screen recorder with retake, drawing tools, callouts and vertical export. No account, no upload, no time limit.",
+  "minimum_chrome_version": "116",
+  "action": {
+    "default_title": "Retake",
+    "default_popup": "pages/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "activeTab",
+    "tabCapture",
+    "desktopCapture",
+    "offscreen",
+    "scripting",
+    "storage",
+    "downloads",
+    "unlimitedStorage"
+  ],
+  "optional_host_permissions": ["<all_urls>"],
+  "web_accessible_resources": [
+    {
+      "resources": ["pages/camera.html", "pages/camera.js", "pages/camera.css"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "commands": {
+    "toggle-pause": {
+      "suggested_key": { "default": "Alt+Shift+K" },
+      "description": "Pause or resume recording"
+    },
+    "retake": {
+      "suggested_key": { "default": "Alt+Shift+U" },
+      "description": "Retake the last segment"
+    },
+    "toggle-draw": {
+      "suggested_key": { "default": "Alt+Shift+D" },
+      "description": "Turn drawing tools on or off"
+    },
+    "finish": {
+      "suggested_key": { "default": "Alt+Shift+S" },
+      "description": "Finish recording"
+    }
+  }
+}
