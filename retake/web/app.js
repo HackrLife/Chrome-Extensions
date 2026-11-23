@@ -4,6 +4,7 @@ import { ic, LOGO } from './core/icons.js';
 import { fmtClock, escapeHtml } from './core/format.js';
 import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
 import { openStudio } from './core/studio.js';
+import { ACCEPT, listFiles, addFiles, removeFile, buildDeck, releaseDeck } from './core/media.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 const TICKER = new URL('./core/ticker.js', import.meta.url).href;
@@ -14,10 +15,12 @@ const SOURCES = {
   browser: { icon: 'tab', name: 'Tab', sub: 'One Chrome tab', label: 'a tab' },
   window: { icon: 'window', name: 'Window', sub: 'Any app window', label: 'a window' },
   monitor: { icon: 'screen', name: 'Screen', sub: 'Everything you see', label: 'your full screen' },
+  slides: { icon: 'slides', name: 'Slides', sub: 'Your deck', label: 'your slides' },
   camera: { icon: 'cam', name: 'Camera', sub: 'Just you', label: 'your camera' },
   voice: { icon: 'mic', name: 'Voice', sub: 'Just your voice', label: 'your voice' },
 };
-const studioMode = () => prefs.source === 'camera' || prefs.source === 'voice';
+const studioMode = () => prefs.source === 'camera' || prefs.source === 'voice' || prefs.source === 'slides';
+let mediaFiles = [], mediaBusy = '';
 const camOn = () => prefs.source === 'camera' || (prefs.cam && prefs.source !== 'voice');
 const scriptFor = () => (prefs.script.trim() ? { text: prefs.script, speed: prefs.speed, size: 28 } : null);
 
@@ -149,14 +152,21 @@ function renderSetup(el) {
     <div class="sources">${Object.entries(SOURCES)
       .map(([k, s]) => `<button class="src ${prefs.source === k ? 'on' : ''}" data-src="${k}">${ic(s.icon, 20)}<b>${s.name}</b><span>${s.sub}</span></button>`)
       .join('')}</div>
-    <div class="section"><div class="tlabel">Microphone</div>
+    <div class="devices"><div class="section"><div class="tlabel">Microphone</div>
       <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic || prefs.source === 'voice')}${prefs.source === 'voice' ? '' : `<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button>`}</div></div>
     ${prefs.source === 'voice' ? '' : `<div class="section"><div class="tlabel">${prefs.source === 'camera' ? 'Camera' : 'Camera bubble'}</div>
-      <div class="devrow">${camOn() ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, camOn())}${prefs.source === 'camera' ? '' : `<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button>`}</div></div>`}
+      <div class="devrow">${camOn() ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, camOn())}${prefs.source === 'camera' ? '' : `<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button>`}</div></div>`}</div>
     <div class="section prompt-box ${prefs.script.trim() ? 'on' : ''}">
       <div class="tlabel row" style="justify-content:space-between">${ic('text', 14)}&nbsp;Teleprompter<span class="words" id="words"></span></div>
-      <textarea class="script" id="script" rows="${prefs.script.trim() ? 5 : 2}" placeholder="Optional: paste your script here. ${studio ? 'It scrolls under your camera' : 'It scrolls in the floating window'} while you record, and it is never in the video.">${escapeHtml(prefs.script)}</textarea>
+      <textarea class="script" id="script" rows="${prefs.script.trim() ? 4 : 2}" placeholder="Optional: paste your script here. ${studio ? 'It scrolls under your camera' : 'It scrolls in the floating window'} while you record, and it is never in the video.">${escapeHtml(prefs.script)}</textarea>
       ${prefs.script.trim() ? `<div class="row prrow"><span class="lbl2">Speed</span><div class="seg">${[[0.75, 'Slow'], [1, 'Normal'], [1.5, 'Fast']].map(([v, l]) => `<button class="${prefs.speed === v ? 'on' : ''}" data-speed="${v}">${l}</button>`).join('')}</div><button class="mini" id="clearScript">Clear</button></div>` : ''}
+      <div class="media">
+        <div class="media-head"><span class="lbl2">${ic('slides', 14)} Slides and media</span>
+          <span class="words">${mediaBusy || (mediaFiles.length ? `${mediaFiles.length} file${mediaFiles.length > 1 ? 's' : ''}` : 'PDF, images or video')}</span>
+          <label class="btn outline add">${ic('upload', 14)} Add<input type="file" id="mediaIn" accept="${ACCEPT}" multiple hidden></label></div>
+        ${mediaFiles.length ? `<div class="mfiles">${mediaFiles.map((f) => `<span class="mfile">${ic(f.kind === 'video' ? 'play' : f.kind === 'pdf' ? 'slides' : 'shot', 12)}<b>${escapeHtml(f.name)}</b><button data-rm="${f.id}" title="Remove">${ic('x', 12)}</button></span>`).join('')}</div>` : ''}
+        <p class="hint">${prefs.source === 'slides' ? 'Your slides fill the video, with your camera in the corner. Change slides with the arrow keys or a clicker.' : 'Choose Slides above to present them, with your camera and this script.'}</p>
+      </div>
     </div>
     <div class="section row" style="gap:8px;flex-wrap:wrap">
       ${studio ? '' : `<button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>`}
@@ -166,7 +176,9 @@ function renderSetup(el) {
     <button class="btn rec big" id="choose">${ic(SOURCES[prefs.source].icon, 18)} ${studio ? 'Continue' : `Choose ${SOURCES[prefs.source].label}`}</button>
     <div class="note">${ic('help', 14)}<span>${
       studio
-        ? prefs.source === 'camera'
+        ? prefs.source === 'slides'
+          ? 'Records your slides full frame, with your camera bubble and voice. No screen sharing needed.'
+          : prefs.source === 'camera'
           ? 'Records just your camera and microphone. You’ll see yourself before anything is recorded.'
           : 'Records just your microphone. Export it as an audio file, or as a video with a sound wave.'
         : prefs.source === 'browser'
@@ -198,6 +210,25 @@ function renderSetup(el) {
     ensureCam();
   });
   on('#clearScript', () => ((prefs.script = ''), savePrefs(), render()));
+  const mi = $('#mediaIn');
+  if (mi)
+    mi.onchange = async () => {
+      mediaBusy = 'Adding…';
+      render();
+      const { skipped } = await addFiles([...mi.files]);
+      mediaFiles = await listFiles();
+      mediaBusy = '';
+      warnText = skipped.length ? `Skipped ${skipped.join(', ')}: use PDF, PNG, JPEG, WebP, GIF, MP4 or WebM.` : '';
+      render();
+    };
+  el.querySelectorAll('[data-rm]').forEach(
+    (b) =>
+      (b.onclick = async () => {
+        await removeFile(b.dataset.rm);
+        mediaFiles = await listFiles();
+        render();
+      }),
+  );
   el.querySelectorAll('[data-speed]').forEach((b) => (b.onclick = () => ((prefs.speed = Number(b.dataset.speed)), savePrefs(), render())));
   const ta = $('#script');
   if (ta) {
@@ -237,7 +268,23 @@ function renderSetup(el) {
 }
 
 // Camera-only and voice-only recordings happen in the studio, with the script under the camera.
-function enterStudio() {
+async function enterStudio() {
+  let deck = [];
+  if (prefs.source === 'slides') {
+    if (!mediaFiles.length) {
+      errorText = 'Add your slides first: a PDF, images or videos, in the Teleprompter box.';
+      return render();
+    }
+    errorText = '';
+    const btn = $('#choose');
+    btn.disabled = true;
+    try {
+      deck = await buildDeck(mediaFiles, (msg) => (btn.textContent = `Preparing ${msg}…`));
+    } catch (e) {
+      errorText = `Couldn’t open your slides: ${e.message || e}.`;
+      return render();
+    }
+  }
   stopCam();
   const home = $('main.home');
   const host = document.createElement('main');
@@ -245,8 +292,10 @@ function enterStudio() {
   home.after(host);
   home.hidden = true;
   openStudio(host, {
-    kind: prefs.source === 'camera' ? 'camera' : 'voice',
+    kind: prefs.source === 'camera' ? 'camera' : prefs.source === 'slides' ? 'slides' : 'voice',
     mic: prefs.mic || prefs.source === 'voice',
+    cam: prefs.cam,
+    deck,
     micId: prefs.micId,
     camId: prefs.camId,
     countdown: prefs.countdown,
@@ -254,6 +303,7 @@ function enterStudio() {
     tickerURL: TICKER,
     onFinish: (id) => (location.href = `pages/editor.html#${encodeURIComponent(id)}`),
     onClose: () => {
+      releaseDeck(deck);
       host.remove();
       home.hidden = false;
       render();
@@ -689,5 +739,6 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 await loadDevices();
+mediaFiles = await listFiles().catch(() => []);
 render();
 ensureCam();

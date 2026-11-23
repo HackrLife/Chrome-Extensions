@@ -43,6 +43,7 @@ export const ICONS = {
   vert: '<rect x="7.5" y="3" width="9" height="18" rx="2"/>',
   horiz: '<rect x="3" y="7.5" width="18" height="9" rx="2"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
+  slides: '<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M12 16v4M8 20h8M7 9h6M7 12h10"/>',
   keys: '<rect x="3" y="6" width="18" height="12" rx="2.2"/><path d="M7 10h.01M10 10h.01M13 10h.01M16 10h.01M8 14h8"/>',
 };
 
