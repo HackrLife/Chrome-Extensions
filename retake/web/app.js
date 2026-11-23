@@ -2,6 +2,7 @@ import { newRecording, putRecording, deleteRecording, requestPersistence } from 
 import { SegmentRecorder, compositeWithCamera } from './core/recorder.js';
 import { ic, LOGO } from './core/icons.js';
 import { fmtClock, escapeHtml } from './core/format.js';
+import { currentTheme, toggleTheme } from './core/theme.js';
 import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
 import { openStudio } from './core/studio.js';
 import { ACCEPT, listFiles, addFiles, removeFile, buildDeck, releaseDeck } from './core/media.js';
@@ -40,16 +41,11 @@ function savePrefs() {
 $('#logo').innerHTML = LOGO(28);
 $('#libLink').innerHTML = `${ic('folder', 16)} My recordings`;
 $('#extLink').innerHTML = `${ic('plus', 16)} Chrome extension`;
-$('#flow').innerHTML = [
-  ['screen', '#fdecec', 'var(--rec)', 'Record', 'Screen, window or tab'],
-  ['retake', '#eef2ff', 'var(--accent)', 'Fix', 'Retake the last part'],
-  ['download', '#ecfdf3', '#12b76a', 'Export', 'MP4, WebM, GIF, vertical'],
-]
-  .map(
-    ([icon, bg, fg, b, s], i) =>
-      `${i ? `<span class="to">${ic('chev', 18)}</span>` : ''}<div class="step"><div class="bubble" style="background:${bg};color:${fg}">${ic(icon, 18)}</div><div><b>${b}</b><span>${s}</span></div></div>`,
-  )
-  .join('');
+document.querySelectorAll('[data-icon]').forEach((n) => (n.innerHTML = ic(n.dataset.icon, 18)));
+const themeBtn = $('#themeBtn');
+const paintTheme = () => (themeBtn.innerHTML = ic(currentTheme() === 'dark' ? 'sun' : 'moon', 16));
+themeBtn.onclick = () => (toggleTheme(), paintTheme());
+paintTheme();
 
 const supported = !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined';
 const canFloat = 'documentPictureInPicture' in window;

@@ -23,7 +23,7 @@ const CSS = `
 .st-bar .btn{height:46px}
 .st-bar .grow{margin-left:auto}
 .st-big{height:52px!important;border-radius:26px;padding:0 28px;font-size:16px}
-.st-confirm{background:#fff;border-radius:16px;box-shadow:0 0 0 1px var(--line);padding:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.st-confirm{background:var(--surface);border-radius:16px;box-shadow:0 0 0 1px var(--line);padding:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
 .st-confirm b{font-size:15px}.st-confirm p{margin:2px 0 0;font-size:13px;color:var(--muted)}
 .st-confirm label{font-size:13px;display:flex;gap:6px;align-items:center;margin-left:auto}
 .st-pulse{animation:stpulse 1.4s ease-in-out infinite}@keyframes stpulse{50%{opacity:.35}}

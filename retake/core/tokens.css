@@ -40,17 +40,17 @@ input, select, textarea { font: inherit; color: inherit; }
 .btn.rec { background: var(--rec); color: #fff; }
 .btn.dark { background: var(--ink); color: #fff; }
 .btn.ghost { background: var(--bg); color: var(--ink); }
-.btn.outline { background: #fff; border: 1px solid var(--line); color: var(--ink); }
+.btn.outline { background: var(--surface); border: 1px solid var(--line); color: var(--ink); }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; filter: none; }
 .dot { width: 10px; height: 10px; border-radius: 50%; background: currentColor; display: block; }
 
-.chip { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border-radius: 17px; border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--ink2); background: #fff; white-space: nowrap; }
+.chip { display: inline-flex; align-items: center; gap: 7px; height: 34px; padding: 0 13px; border-radius: 17px; border: 1px solid var(--line); font-size: 12.5px; font-weight: 600; color: var(--ink2); background: var(--surface); white-space: nowrap; }
 .chip.on { background: var(--ink); color: #fff; border-color: var(--ink); }
 .chip:hover:not(.on) { background: #f8f9fa; }
 
 .seg { display: flex; background: var(--bg); border-radius: 12px; padding: 4px; gap: 4px; }
 .seg > button { flex: 1; border-radius: 9px; padding: 9px 0; display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
-.seg > button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04); }
+.seg > button.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.04); }
 .seg.tall > button { flex-direction: column; padding: 10px 0 9px; gap: 6px; }
 
 .toggle { width: 40px; height: 24px; border-radius: 12px; background: #d3d6db; position: relative; flex: none; transition: background 0.15s; }
@@ -58,14 +58,41 @@ input, select, textarea { font: inherit; color: inherit; }
 .toggle.on { background: var(--ink); }
 .toggle.on::after { left: 19px; }
 
-.field { height: 42px; border-radius: 12px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; gap: 10px; font-size: 13px; background: #fff; width: 100%; }
+.field { height: 42px; border-radius: 12px; border: 1px solid var(--line); display: flex; align-items: center; padding: 0 12px; gap: 10px; font-size: 13px; background: var(--surface); width: 100%; }
 .field input, .field select { border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; font-size: 13px; height: 100%; }
 .field select { appearance: none; -webkit-appearance: none; cursor: pointer; }
 .field:focus-within { border-color: var(--ink); }
 
-.panel { background: #fff; border-radius: 18px; box-shadow: var(--shadow); }
+.panel { background: var(--surface); border-radius: 18px; box-shadow: var(--shadow); }
 .scrim { position: fixed; inset: 0; background: rgba(15, 17, 22, 0.45); display: grid; place-items: center; z-index: 50; }
 .notice { display: flex; gap: 10px; align-items: flex-start; padding: 12px 14px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; background: var(--bg); color: var(--ink2); }
 .notice.warn { background: #fff7e6; color: #7a4b00; }
 .notice.err { background: var(--rec-soft); color: #9b1c20; }
 .toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: var(--ink); color: #fff; padding: 11px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; z-index: 100; box-shadow: var(--shadow); }
+
+/* Dark theme: set data-theme="dark" on <html> (see theme.js). */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #f2f3f5;
+  --ink2: #c8ccd3;
+  --muted: #9aa0aa;
+  --line: #2a2e36;
+  --bg: #0d0f13;
+  --surface: #171a20;
+  --accent: #6f8cff;
+  --accent-soft: #1b2342;
+  --rec-soft: #3b1719;
+  --green-soft: #10261c;
+  --shadow: 0 24px 60px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+:root[data-theme='dark'] .btn.dark,
+:root[data-theme='dark'] .chip.on { background: #f2f3f5; color: #111318; border-color: #f2f3f5; }
+:root[data-theme='dark'] .toggle { background: #3a3f48; }
+:root[data-theme='dark'] .toggle.on { background: #f2f3f5; }
+:root[data-theme='dark'] .toggle.on::after { background: #111318; }
+:root[data-theme='dark'] .toast { background: #f2f3f5; color: #111318; }
+:root[data-theme='dark'] .seg { background: #0d0f13; }
+:root[data-theme='dark'] .notice { background: #2b2410; color: #f5d78e; border-color: #4a3d14; }
+:root[data-theme='dark'] select, :root[data-theme='dark'] input, :root[data-theme='dark'] textarea { color: var(--ink); }
+:root[data-theme='dark'] .chip:hover:not(.on) { background: #232730; }
+:root[data-theme='dark'] svg[aria-label='Retake'] > rect:first-child { fill: #2a2e36; }

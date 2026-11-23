@@ -1,3 +1,4 @@
+import '../core/theme.js';
 import { getRecording, updateRecording, getSegmentBlob } from '../core/db.js';
 import { ic, LOGO } from '../core/icons.js';
 import { fmtTime, fmtTimePrecise, fmtBytes, fmtWhen, slugify, escapeHtml } from '../core/format.js';
