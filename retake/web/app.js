@@ -6,7 +6,13 @@ import { fmtClock } from './core/format.js';
 const $ = (s, root = document) => root.querySelector(s);
 const TICKER = new URL('./core/ticker.js', import.meta.url).href;
 const PREFS_KEY = 'retake.prefs';
-const prefs = Object.assign({ mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true }, readPrefs());
+const prefs = Object.assign({ source: 'monitor', mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true }, readPrefs());
+
+const SOURCES = {
+  browser: { icon: 'tab', name: 'A tab', sub: 'One Chrome tab', label: 'a Chrome tab' },
+  window: { icon: 'window', name: 'A window', sub: 'Any app window', label: 'a window' },
+  monitor: { icon: 'screen', name: 'Full screen', sub: 'Everything you see', label: 'your full screen' },
+};
 
 function readPrefs() {
   try {
@@ -25,7 +31,7 @@ $('#logo').innerHTML = LOGO(28);
 $('#libLink').innerHTML = `${ic('folder', 16)} My recordings`;
 $('#extLink').innerHTML = `${ic('plus', 16)} Chrome extension`;
 $('#flow').innerHTML = [
-  ['screen', 'var(--rec-soft, #fdecec)', 'var(--rec)', 'Record', 'Screen, window or tab'],
+  ['screen', '#fdecec', 'var(--rec)', 'Record', 'Screen, window or tab'],
   ['retake', '#eef2ff', 'var(--accent)', 'Fix', 'Retake the last part'],
   ['download', '#ecfdf3', '#12b76a', 'Export', 'MP4, WebM, GIF, vertical'],
 ]
@@ -37,19 +43,60 @@ $('#flow').innerHTML = [
 
 const supported = !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined';
 const canFloat = 'documentPictureInPicture' in window;
+const REC_DOT = '<span class="recdot"></span>';
 
 // ---------- state ----------
-let view = 'setup'; // setup | countdown | recording | paused | retake | saving
-let display = null, mic = null, cam = null, composite = null, mixed = null, audioCtx = null;
+// setup → ready (share chosen, live preview) → countdown → recording ⇄ paused / retake → saving
+let view = 'setup';
+let display = null, surface = 'monitor', mic = null, cam = null, camPending = false;
+let composite = null, mixed = null, audioCtx = null;
 let recorder = null, recordingId = null, pip = null, timer = null, countdownLeft = 0, retakeCountdown = true;
 let devices = { audioinput: [], videoinput: [] };
-let errorText = '';
+let errorText = '', warnText = '';
+
+// Videos are made once and moved between the page and the floating window, so they never flicker.
+const screenVideo = mkVideo();
+const selfVideo = mkVideo(true);
+function mkVideo(mirror) {
+  const v = document.createElement('video');
+  v.muted = true;
+  v.playsInline = true;
+  v.autoplay = true;
+  if (mirror) v.style.transform = 'scaleX(-1)';
+  return v;
+}
+function mount(slot, video, stream) {
+  if (!slot || !stream) return;
+  if (video.srcObject !== stream) video.srcObject = stream;
+  if (video.parentNode !== slot) slot.append(video);
+  video.play().catch(() => {});
+}
 
 async function loadDevices() {
   try {
     const list = await navigator.mediaDevices.enumerateDevices();
     devices = { audioinput: list.filter((d) => d.kind === 'audioinput'), videoinput: list.filter((d) => d.kind === 'videoinput') };
   } catch {}
+}
+
+async function ensureCam() {
+  if (!prefs.cam || cam || camPending) return;
+  camPending = true;
+  try {
+    cam = await navigator.mediaDevices.getUserMedia({ video: { deviceId: prefs.camId ? { exact: prefs.camId } : undefined, width: { ideal: 640 }, height: { ideal: 480 } } });
+    warnText = '';
+    await loadDevices();
+  } catch {
+    prefs.cam = false;
+    savePrefs();
+    warnText = 'Camera blocked. Allow it from the icon in the address bar, then turn the camera on again.';
+  }
+  camPending = false;
+  refresh();
+}
+function stopCam() {
+  cam?.getTracks().forEach((t) => t.stop());
+  cam = null;
 }
 
 function deviceSelect(kind, id, selected, on) {
@@ -61,59 +108,120 @@ function deviceSelect(kind, id, selected, on) {
   return `<div class="field"><select id="${id}" ${on ? '' : 'disabled'}>${opts}</select></div>`;
 }
 
+const notices = () => [errorText, warnText].filter(Boolean).map((t) => `<div class="notice">${t}</div>`).join('');
+
+// ---------- page ----------
 function render() {
   const el = $('#recorder');
   if (!supported) {
     el.innerHTML = `<div class="head"><span class="title">Record your screen</span></div><div class="notice">This browser can’t record the screen. Retake works in Chrome, Edge and other Chromium browsers on a computer.</div>`;
     return;
   }
-  if (view === 'setup') {
-    el.innerHTML = `
-      <div class="head"><span class="title">New recording</span><span class="chip">${ic('lock', 14)} Saved on this device</span></div>
-      <div class="section"><div class="tlabel">Microphone</div>
-        <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic)}<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button></div></div>
-      <div class="section"><div class="tlabel">Camera bubble</div>
-        <div class="devrow">${deviceSelect('videoinput', 'camSel', prefs.camId, prefs.cam)}<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button></div></div>
-      <div class="section row" style="gap:8px;flex-wrap:wrap">
-        <button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>
-        <button class="chip ${prefs.countdown ? 'on' : ''}" id="cdC">${ic('fade', 14)} 3s countdown</button>
-      </div>
-      ${errorText ? `<div class="notice">${errorText}</div>` : ''}
-      <button class="btn rec big" id="start">${ic('screen', 18)} Start recording</button>
-      <div class="note">${ic('help', 14)}<span>Chrome will ask what to share: a tab, a window or your whole screen. ${canFloat ? 'Small floating controls stay on top while you record.' : ''}</span></div>`;
-    $('#micT').onclick = () => ((prefs.mic = !prefs.mic), savePrefs(), render());
-    $('#camT').onclick = () => ((prefs.cam = !prefs.cam), savePrefs(), render());
-    $('#soundC').onclick = () => ((prefs.sound = !prefs.sound), savePrefs(), render());
-    $('#cdC').onclick = () => ((prefs.countdown = !prefs.countdown), savePrefs(), render());
-    $('#micSel').onchange = (e) => ((prefs.micId = e.target.value), savePrefs());
-    $('#camSel').onchange = (e) => ((prefs.camId = e.target.value), savePrefs());
-    $('#start').onclick = start;
-    return;
-  }
-  if (view === 'countdown') {
-    el.innerHTML = `<div class="live"><div class="status">Recording starts in</div><div class="count">${countdownLeft}</div><button class="link" id="cancel">Cancel</button></div>`;
-    $('#cancel').onclick = () => cancel();
-    return;
-  }
+  if (view === 'setup') return renderSetup(el);
+  if (view === 'ready') return renderReady(el);
   if (view === 'saving') {
     el.innerHTML = `<div class="live"><div class="status">Saving your recording…</div></div>`;
     return;
   }
-  const paused = view === 'paused' || view === 'retake';
+  renderLive(el);
+}
+
+function renderSetup(el) {
   el.innerHTML = `
-    <div class="live">
-      <div class="status"><span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>${paused ? 'Paused' : 'Recording'}</div>
-      <div class="clock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</div>
-      ${view === 'retake' ? retakeBox() : `
+    <div class="head"><span class="title">New recording</span><span class="chip">${ic('lock', 14)} Saved on this device</span></div>
+    <div class="tlabel">What to record</div>
+    <div class="sources">${Object.entries(SOURCES)
+      .map(([k, s]) => `<button class="src ${prefs.source === k ? 'on' : ''}" data-src="${k}">${ic(s.icon, 22)}<b>${s.name}</b><span>${s.sub}</span></button>`)
+      .join('')}</div>
+    <div class="section"><div class="tlabel">Microphone</div>
+      <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic)}<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button></div></div>
+    <div class="section"><div class="tlabel">Camera bubble</div>
+      <div class="devrow">${prefs.cam ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, prefs.cam)}<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button></div></div>
+    <div class="section row" style="gap:8px;flex-wrap:wrap">
+      <button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>
+      <button class="chip ${prefs.countdown ? 'on' : ''}" id="cdC">${ic('fade', 14)} 3s countdown</button>
+    </div>
+    ${notices()}
+    <button class="btn rec big" id="choose">${ic(SOURCES[prefs.source].icon, 18)} Choose ${SOURCES[prefs.source].label}</button>
+    <div class="note">${ic('help', 14)}<span>Next you pick exactly what to share and see it here before anything is recorded. Drawing on the screen while recording needs the Chrome extension; arrows, boxes and zooms can be added afterwards in the editor.</span></div>`;
+  el.querySelectorAll('[data-src]').forEach((b) => (b.onclick = () => ((prefs.source = b.dataset.src), savePrefs(), render())));
+  $('#micT').onclick = () => ((prefs.mic = !prefs.mic), savePrefs(), render());
+  $('#camT').onclick = () => {
+    prefs.cam = !prefs.cam;
+    savePrefs();
+    if (!prefs.cam) stopCam();
+    render();
+    ensureCam();
+  };
+  $('#soundC').onclick = () => ((prefs.sound = !prefs.sound), savePrefs(), render());
+  $('#cdC').onclick = () => ((prefs.countdown = !prefs.countdown), savePrefs(), render());
+  $('#micSel').onchange = (e) => ((prefs.micId = e.target.value), savePrefs());
+  $('#camSel').onchange = (e) => {
+    prefs.camId = e.target.value;
+    savePrefs();
+    stopCam();
+    ensureCam();
+  };
+  $('#choose').onclick = choose;
+  mount($('#selfSlot'), selfVideo, cam);
+}
+
+function sourceLabel() {
+  return SOURCES[surface]?.label || 'your screen';
+}
+
+function previewBox() {
+  return `<div class="preview"><div class="pvslot" id="pvSlot"></div>${cam && !pip ? '<div class="pvcam" id="pvCam"></div>' : ''}
+    <span class="srclabel">${ic(SOURCES[surface]?.icon || 'screen', 13)} ${view === 'ready' ? 'You’ll record' : 'Recording'} ${sourceLabel()}</span></div>`;
+}
+
+function renderReady(el) {
+  const floatNote = canFloat
+    ? `Press Start and a small floating window with ${cam ? 'your camera and ' : ''}the controls stays on top of every app while you record.`
+    : 'Keep this tab open to pause, retake or finish.';
+  const camNote = cam && surface === 'monitor' ? ' On a full-screen recording the camera bubble is filmed where you leave it, so drag it where you want it.' : '';
+  el.innerHTML = `
+    <div class="head"><span class="title">Ready to record</span><button class="chip" id="change">${ic('retake', 14)} Change</button></div>
+    ${previewBox()}
+    ${notices()}
+    <button class="btn rec big" id="go">${REC_DOT} Start recording</button>
+    <div class="note">${ic('help', 14)}<span>${floatNote}${camNote} Shortcuts: Alt+Shift+K pause, Alt+Shift+U retake, Alt+Shift+S finish.</span></div>
+    <button class="link" id="cancel">Cancel</button>`;
+  $('#go').onclick = go;
+  $('#change').onclick = async () => {
+    releaseShare();
+    await choose();
+  };
+  $('#cancel').onclick = () => {
+    releaseShare();
+    view = 'setup';
+    render();
+  };
+  mount($('#pvSlot'), screenVideo, display);
+  mount($('#pvCam'), selfVideo, cam);
+}
+
+function renderLive(el) {
+  const paused = view === 'paused' || view === 'retake';
+  const status =
+    view === 'countdown'
+      ? `<div class="status">Recording starts in <b class="cd">${countdownLeft}</b></div>`
+      : `<div class="status"><span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>${paused ? 'Paused' : 'Recording'} <span class="clock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</span></div>`;
+  el.innerHTML = `
+    ${previewBox()}
+    <div class="live">${status}
+      ${view === 'retake' ? retakeBox() : view === 'countdown' ? '<button class="link" id="cancel">Cancel</button>' : `
       <div class="controls">
         <button class="btn dark" id="pause">${paused ? `${ic('play', 16)} Resume` : `${ic('pause', 16)} Pause`}</button>
         <button class="btn outline" id="retake" ${recorder?.segments.length || recorder?.recording ? '' : 'disabled'}>${ic('retake', 16)} Retake</button>
         <button class="btn rec wide" id="finish">${ic('check', 16)} Finish and edit</button>
       </div>
-      ${canFloat && !pip ? `<button class="link" id="float">${ic('vert', 13)} Open floating controls</button>` : ''}
+      ${canFloat && !pip ? `<button class="link" id="float">${ic('vert', 13)} Show floating controls</button>` : ''}
       <button class="link" id="cancel">Discard this recording</button>`}
     </div>`;
   bindLive(el);
+  mount($('#pvSlot'), screenVideo, display);
+  mount($('#pvCam'), selfVideo, cam);
 }
 
 function retakeBox() {
@@ -139,33 +247,45 @@ function bindLive(root) {
   if (cb) cb.onchange = (e) => (retakeCountdown = e.target.checked);
 }
 
-// ---------- floating controls (Document Picture-in-Picture) ----------
-function pipHTML() {
-  const paused = view === 'paused' || view === 'retake';
-  if (view === 'countdown') return `<div class="pip"><span class="pnum">${countdownLeft}</span><span class="plabel">Get ready…</span></div>`;
-  if (view === 'retake')
-    return `<div class="pip"><span class="plabel">Retake the last part?</span><button class="btn outline sm" id="rtNo">Keep</button><button class="btn rec sm" id="rtYes">${ic('retake', 14)} Retake</button></div>`;
-  return `<div class="pip">
-    <span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>
-    <span class="pclock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</span>
-    <button class="ib" id="pause" title="${paused ? 'Resume' : 'Pause'}">${ic(paused ? 'play' : 'pause', 18)}</button>
-    <button class="ib" id="retake" title="Retake the last part">${ic('retake', 18)}</button>
-    <button class="btn rec sm" id="finish">${ic('check', 14)} Finish</button></div>`;
-}
-
-const PIP_CSS = `body{margin:0;background:#111318;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
-.pip{height:100vh;display:flex;align-items:center;gap:10px;padding:0 14px}
-.pclock{font-variant-numeric:tabular-nums;font-weight:600;font-size:18px;min-width:64px}
-.pnum{font-size:30px;font-weight:700}.plabel{font-size:14px;font-weight:600;flex:1}
-.ib{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;cursor:pointer}
-.ib:hover{background:rgba(255,255,255,.18)}.btn.sm{height:38px;padding:0 14px;font-size:13px;margin-left:auto}
+// ---------- floating window (Document Picture-in-Picture) ----------
+// Holds the camera bubble, so you can see yourself over any app, and the controls.
+const PIP_CSS = `html,body{margin:0;height:100%;background:#111318;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+.wrap{height:100%;display:flex;flex-direction:column}
+.cam{flex:1;min-height:0;display:grid;place-items:center;padding:12px 12px 0}
+.cam .ring{height:100%;aspect-ratio:1;max-width:100%;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px #fff}
+.cam video{width:100%;height:100%;object-fit:cover}
+.bar{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px}
+.psrc{font-size:11px;color:rgba(255,255,255,.6);padding:0 14px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;display:flex;gap:6px;align-items:center}
+.pclock{font-variant-numeric:tabular-nums;font-weight:600;font-size:17px;min-width:56px}
+.pnum{font-size:26px;font-weight:700}.plabel{font-size:13px;font-weight:600;flex:1}
+.ib{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.ib:hover{background:rgba(255,255,255,.18)}
+.btn.sm{height:38px;padding:0 14px;font-size:13px;margin-left:auto}
 .btn.outline.sm{margin-left:0;background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}.pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}`;
 
+function pipBar() {
+  const paused = view === 'paused' || view === 'retake';
+  if (view === 'countdown') return `<span class="pnum">${countdownLeft}</span><span class="plabel">Recording starts…</span>`;
+  if (view === 'retake')
+    return `<span class="plabel">Retake last part?</span><button class="btn outline sm" id="rtNo">Keep</button><button class="btn rec sm" id="rtYes" style="margin-left:0">${ic('retake', 14)} Retake</button>`;
+  return `<span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>
+    <span class="pclock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</span>
+    <button class="ib" id="pause" title="${paused ? 'Resume' : 'Pause'} (Alt+Shift+K)">${ic(paused ? 'play' : 'pause', 18)}</button>
+    <button class="ib" id="retake" title="Retake the last part (Alt+Shift+U)">${ic('retake', 18)}</button>
+    <button class="btn rec sm" id="finish">${ic('check', 14)} Finish</button>`;
+}
+
 function openFloat() {
   if (!canFloat || pip) return Promise.resolve(pip);
-  return documentPictureInPicture
-    .requestWindow({ width: 340, height: 64 })
+  const size = cam ? { width: 300, height: 380 } : { width: 340, height: 92 };
+  let p;
+  try {
+    p = documentPictureInPicture.requestWindow(size);
+  } catch (e) {
+    p = Promise.reject(e);
+  }
+  return p
     .then((w) => {
       pip = w;
       for (const sheet of document.styleSheets) {
@@ -179,6 +299,8 @@ function openFloat() {
       s.textContent = PIP_CSS;
       w.document.head.append(s);
       w.document.title = 'Retake';
+      w.document.body.innerHTML = `<div class="wrap">${cam ? '<div class="cam"><div class="ring" id="camSlot"></div></div>' : ''}<div class="bar" id="bar"></div><div class="psrc">${ic(SOURCES[surface]?.icon || 'screen', 12)} Recording ${sourceLabel()}</div></div>`;
+      if (cam) mount(w.document.getElementById('camSlot'), selfVideo, cam);
       w.addEventListener('pagehide', () => {
         pip = null;
         refresh();
@@ -187,14 +309,21 @@ function openFloat() {
       refresh();
       return w;
     })
-    .catch(() => null);
+    .catch(() => {
+      warnText = 'The floating window couldn’t open, so use this page or the shortcuts to control the recording.';
+      refresh();
+      return null;
+    });
 }
 
 function refresh() {
   render();
   if (pip) {
-    pip.document.body.innerHTML = pipHTML();
-    bindLive(pip.document);
+    const bar = pip.document.getElementById('bar');
+    if (bar) {
+      bar.innerHTML = pipBar();
+      bindLive(pip.document);
+    }
   }
 }
 
@@ -207,42 +336,62 @@ function tick() {
 }
 
 // ---------- flow ----------
-async function start() {
+async function choose() {
   errorText = '';
-  // Ask for the screen and the floating window in the same click: both need it.
-  const shareP = navigator.mediaDevices.getDisplayMedia({
-    video: { frameRate: { ideal: 30 }, width: { max: 2560 }, height: { max: 1600 } },
-    audio: prefs.sound ? { suppressLocalAudioPlayback: false } : false,
-    selfBrowserSurface: 'exclude',
-    surfaceSwitching: 'include',
-    systemAudio: prefs.sound ? 'include' : 'exclude',
-  });
-  const pipP = openFloat();
   try {
-    display = await shareP;
+    display = await navigator.mediaDevices.getDisplayMedia({
+      video: { displaySurface: prefs.source, frameRate: { ideal: 30 }, width: { max: 2560 }, height: { max: 1600 } },
+      audio: prefs.sound ? { suppressLocalAudioPlayback: false } : false,
+      selfBrowserSurface: 'exclude',
+      preferCurrentTab: false,
+      surfaceSwitching: 'include',
+      monitorTypeSurfaces: 'include',
+      systemAudio: prefs.sound ? 'include' : 'exclude',
+    });
   } catch (e) {
-    pip?.close();
+    display = null;
     if (e.name !== 'NotAllowedError') errorText = `Couldn’t start sharing: ${e.message || e.name}.`;
+    view = 'setup';
     return render();
   }
-  await pipP;
-  display.getVideoTracks()[0].addEventListener('ended', () => {
-    if (view !== 'setup' && view !== 'saving') finish();
-  });
-  try {
-    if (prefs.mic) mic = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: prefs.micId ? { exact: prefs.micId } : undefined, echoCancellation: true, noiseSuppression: true } });
-  } catch {
-    errorText = 'Microphone blocked, so this recording has no voice. Allow it in the address bar to use it next time.';
+  surface = display.getVideoTracks()[0].getSettings().displaySurface || prefs.source;
+  display.getVideoTracks()[0].addEventListener('ended', onShareEnded);
+  warnText = '';
+  if (prefs.mic && !mic) {
+    try {
+      mic = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: prefs.micId ? { exact: prefs.micId } : undefined, echoCancellation: true, noiseSuppression: true } });
+    } catch {
+      warnText = 'Microphone blocked, so this recording will have no voice. Allow it from the icon in the address bar.';
+    }
   }
-  try {
-    if (prefs.cam) cam = await navigator.mediaDevices.getUserMedia({ video: { deviceId: prefs.camId ? { exact: prefs.camId } : undefined, width: { ideal: 640 }, height: { ideal: 480 } } });
-  } catch {
-    errorText = 'Camera blocked, so this recording has no camera bubble.';
-  }
+  if (prefs.cam) await ensureCam();
+  if (prefs.sound && !display.getAudioTracks().length && surface !== 'browser')
+    warnText ||= 'Sound from the screen isn’t included. Chrome shares sound from a tab, or from the whole screen on Windows.';
   loadDevices();
+  view = 'ready';
+  render();
+}
 
+function onShareEnded() {
+  if (view === 'ready') {
+    releaseShare();
+    view = 'setup';
+    render();
+  } else if (view !== 'setup' && view !== 'saving') finish();
+}
+
+function releaseShare() {
+  display?.getTracks().forEach((t) => t.stop());
+  mic?.getTracks().forEach((t) => t.stop());
+  display = mic = null;
+}
+
+async function go() {
+  // Must come first, while the click still counts: the floating window needs it.
+  const pipP = openFloat();
   const tracks = [];
-  if (cam) {
+  // On a full-screen recording the floating camera bubble is already in the picture.
+  if (cam && surface !== 'monitor') {
     composite = compositeWithCamera(display, cam, TICKER);
     tracks.push(...composite.stream.getVideoTracks());
   } else tracks.push(...display.getVideoTracks());
@@ -257,7 +406,6 @@ async function start() {
   mixed = new MediaStream(tracks);
 
   const set = display.getVideoTracks()[0].getSettings();
-  const surface = set.displaySurface || 'monitor';
   const rec = newRecording({
     source: surface === 'browser' ? 'tab' : surface === 'window' ? 'window' : 'screen',
     width: set.width || 1920,
@@ -269,6 +417,7 @@ async function start() {
   rec.mimeType = recorder.mimeType;
   await putRecording(rec);
   requestPersistence();
+  await pipP;
   await countdownThen(prefs.countdown, () => recorder.begin());
 }
 
@@ -302,7 +451,7 @@ async function togglePause() {
 }
 
 async function askRetake() {
-  if (!recorder) return;
+  if (!recorder || (view !== 'recording' && view !== 'paused')) return;
   if (recorder.recording) await recorder.endSegment();
   if (!recorder.segments.length) return refresh();
   view = 'retake';
@@ -328,21 +477,21 @@ async function finish() {
   if (!recorder || view === 'saving') return;
   view = 'saving';
   refresh();
-  const r = recorder;
-  const count = await r.finish();
+  const count = await recorder.finish();
   stopAll();
   recorder = null;
   if (!count) {
     view = 'setup';
     errorText = 'Nothing was recorded.';
-    return render();
+    render();
+    return ensureCam();
   }
   location.href = `pages/editor.html#${encodeURIComponent(recordingId)}`;
 }
 
 async function cancel() {
-  const wasCountdown = view === 'countdown' && !recorder?.segments.length && !recorder?.recording;
-  if (!wasCountdown && !confirm('Discard this recording? It can’t be recovered.')) return;
+  const nothingYet = !recorder?.segments.length && !recorder?.recording;
+  if (!nothingYet && !confirm('Discard this recording? It can’t be recovered.')) return;
   view = 'setup';
   const r = recorder;
   recorder = null;
@@ -352,10 +501,11 @@ async function cancel() {
     await deleteRecording(recordingId);
   }
   render();
+  ensureCam();
 }
 
 function onKey(e) {
-  if (view === 'setup' || e.target.closest?.('input,select,textarea')) return;
+  if (view === 'setup' || view === 'ready' || e.target.closest?.('input,select,textarea')) return;
   if (e.altKey && e.shiftKey && e.code === 'KeyK') (e.preventDefault(), togglePause());
   if (e.altKey && e.shiftKey && e.code === 'KeyU') (e.preventDefault(), askRetake());
   if (e.altKey && e.shiftKey && e.code === 'KeyS') (e.preventDefault(), finish());
@@ -367,4 +517,4 @@ window.addEventListener('beforeunload', (e) => {
 
 await loadDevices();
 render();
-if (location.hash === '#record') $('#start')?.focus();
+ensureCam();
