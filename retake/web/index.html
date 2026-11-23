@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Retake · The on-device tool for screen recording + livestream</title>
+    <title>Retake · The on-device free tool for screen recording and explainer videos</title>
     <meta name="description" content="A free screen recorder that runs in your browser. Local saving, no cloud fees, and a teleprompter that hosts your slides and media. Nothing you record leaves your computer." />
     <link rel="icon" href="icons/icon-32.png" />
     <link rel="stylesheet" href="core/tokens.css" />
@@ -13,6 +13,7 @@
     <header class="appbar">
       <a class="brand" href="./"><span id="logo"></span><span>Retake</span></a>
       <nav class="nav">
+        <button class="chip" id="acct" hidden></button>
         <button class="chip icon-only" id="themeBtn" aria-label="Switch between light and dark"></button>
         <a class="chip" href="pages/library.html" id="libLink"></a>
         <a class="chip" href="https://github.com/HackrLife/chrome-extensions/tree/main/retake" target="_blank" rel="noopener" id="extLink"></a>
@@ -21,11 +22,11 @@
     <main class="home">
       <section class="hero">
         <h1>Retake</h1>
-        <p class="strap">The on-device tool for screen recording + livestream</p>
+        <p class="strap">The on-device free tool for screen recording and explainer videos</p>
         <div class="quad">
-          <div class="q"><span class="qi" style="background:var(--rec-soft);color:var(--rec)" data-icon="screen"></span><b>Record</b><span>Screen, tab, slides or camera</span></div>
+          <div class="q"><span class="qi" style="background:var(--rec-soft);color:var(--rec)" data-icon="screen"></span><b>Record</b><span>Screen, tab, window or camera</span></div>
           <div class="q"><span class="qi" style="background:var(--accent-soft);color:var(--accent)" data-icon="retake"></span><b>Fix</b><span>Retake just the last part</span></div>
-          <div class="q"><span class="qi" style="background:#fff4e0;color:#c77d00" data-icon="bolt"></span><b>Stream <em class="soon">Soon</em></b><span>Go live on YouTube and more</span></div>
+          <div class="q"><span class="qi" style="background:#fff4e0;color:#c77d00" data-icon="slides"></span><b>Explain</b><span>Present slides with your camera, draw and read your script</span></div>
           <div class="q"><span class="qi" style="background:var(--green-soft);color:var(--green)" data-icon="download"></span><b>Export</b><span>MP4, WebM, GIF, vertical, audio</span></div>
         </div>
         <p class="fine">A free screen recorder that runs in your browser. Local saving, no cloud fees, and a teleprompter that hosts your slides and media. Nothing you record leaves this computer.</p>

@@ -16,7 +16,7 @@ body { min-height: 100vh; display: flex; flex-direction: column; background: var
 .soon { font-style: normal; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #c77d00; background: #fff4e0; padding: 2px 6px; border-radius: 6px; }
 .fine { font-size: 13px; line-height: 1.6; font-style: italic; color: var(--muted); margin-top: 22px; max-width: 400px; }
 .chip.icon-only { width: 38px; padding: 0; justify-content: center; }
-:root[data-theme='dark'] .soon, :root[data-theme='dark'] .q .qi[data-icon='bolt'] { background: #3a2a0c !important; color: #f5b83d !important; }
+:root[data-theme='dark'] .soon, :root[data-theme='dark'] .q .qi[data-icon='slides'] { background: #3a2a0c !important; color: #f5b83d !important; }
 :root[data-theme='dark'] .appbar { background: var(--surface); }
 .lead { font-size: 18px; line-height: 1.55; color: var(--muted); margin-top: 18px; max-width: 520px; }
 .flow { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 30px; max-width: 360px; }
@@ -132,3 +132,16 @@ textarea.script:focus { box-shadow: inset 0 0 0 2px var(--ink); }
 .mfile button { border: 0; background: none; color: var(--muted); display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; cursor: pointer; }
 .mfile button:hover { background: var(--bg); color: var(--ink); }
 .media .hint { margin-top: 8px; }
+
+/* sign-up */
+.signup h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.4px; margin: 4px 0 8px; }
+.signup p.sub { font-size: 14px; color: var(--muted); line-height: 1.55; margin: 0 0 20px; }
+.signup .field input { border: 0; outline: 0; background: transparent; font: 15px Inter, system-ui, sans-serif; color: var(--ink); width: 100%; height: 100%; }
+.signup .field { height: 48px; }
+.signup .consent { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--ink2); line-height: 1.45; margin: 14px 0 18px; cursor: pointer; }
+.signup .consent input { margin-top: 2px; width: 16px; height: 16px; accent-color: var(--rec); }
+.signup .perks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 18px 0 0; }
+.signup .perks span { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--muted); }
+.signup .sent { text-align: center; padding: 18px 6px 6px; }
+.signup .sent .bubble { width: 56px; height: 56px; border-radius: 18px; display: grid; place-items: center; margin: 0 auto 14px; background: var(--green-soft); color: var(--green); }
+.signup .fine2 { font-size: 11.5px; color: var(--muted); margin-top: 14px; line-height: 1.5; }

@@ -2,6 +2,9 @@
 
 ## 0.1.0 (in development)
 
+- Web app: free sign-up with an emailed link before recording; marketing emails only with an unticked opt-in box.
+- Web app: Slides opens a full-screen presenter with camera bubble, drawing tools and script.
+
 - Teleprompter in the desktop app, the extension and the web app: the script scrolls while you record, stops when you pause and goes back on a retake. It is never in the video (on screen recordings in the extension and web app, keep its window outside what you record).
 - Camera-only and voice-only recordings everywhere, with the script under the camera; export any recording as audio only (M4A or WebM).
 - Desktop app for Mac and Windows: floating camera bubble, controls kept out of the recording, drawing on screen, cursor spotlight, global shortcuts; same editor, export and library.

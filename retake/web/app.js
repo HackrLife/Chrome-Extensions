@@ -3,6 +3,7 @@ import { SegmentRecorder, compositeWithCamera } from './core/recorder.js';
 import { ic, LOGO } from './core/icons.js';
 import { fmtClock, escapeHtml } from './core/format.js';
 import { currentTheme, toggleTheme } from './core/theme.js';
+import { getSession, sendLink, finishFromUrl, pendingEmail, signOut } from './core/auth.js';
 import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
 import { openStudio } from './core/studio.js';
 import { openPresenter } from './core/presenter.js';
@@ -95,7 +96,7 @@ async function loadDevices() {
 }
 
 async function ensureCam() {
-  if (!camOn() || cam || camPending) return;
+  if (!session || !camOn() || cam || camPending) return;
   camPending = true;
   try {
     cam = await navigator.mediaDevices.getUserMedia({ video: { deviceId: prefs.camId ? { exact: prefs.camId } : undefined, width: { ideal: 640 }, height: { ideal: 480 } } });
@@ -126,8 +127,80 @@ function deviceSelect(kind, id, selected, on) {
 const notices = () => [errorText, warnText].filter(Boolean).map((t) => `<div class="notice">${t}</div>`).join('');
 
 // ---------- page ----------
+// ---------- account ----------
+let session = null, signupState = 'form', signupError = '', signupEmail = '', signupMarketing = false;
+function paintAccount() {
+  const b = $('#acct');
+  b.hidden = !session;
+  if (!session) return;
+  b.innerHTML = `${ic('lock', 14)} ${escapeHtml(session.email || 'Signed in')}`;
+  b.title = 'Sign out';
+  b.onclick = async () => {
+    if (recorder) return;
+    if (!confirm('Sign out of Retake on this computer? Your recordings stay here.')) return;
+    await signOut();
+    session = null;
+    signupState = 'form';
+    stopCam();
+    paintAccount();
+    render();
+  };
+}
+
+function renderSignup(el) {
+  if (signupState === 'sent') {
+    el.innerHTML = `<div class="signup"><div class="sent">
+      <div class="bubble">${ic('check', 26)}</div>
+      <h2>Check your inbox</h2>
+      <p class="sub">We sent a sign-in link to <b>${escapeHtml(signupEmail)}</b>. Open it in this browser and Retake opens, ready to record.</p>
+      <button class="btn outline" id="again">Use a different email</button>
+      <p class="fine2">No email after a minute? Look in spam or promotions, or send it again.</p>
+      <button class="link" id="resend">Send the link again</button></div></div>`;
+    $('#again').onclick = () => ((signupState = 'form'), render());
+    $('#resend').onclick = () => submitSignup(signupEmail, signupMarketing);
+    return;
+  }
+  el.innerHTML = `<div class="signup">
+    <div class="head"><span class="chip">${ic('lock', 14)} Free account</span></div>
+    <h2>Sign up to start recording</h2>
+    <p class="sub">Retake is free. Your recordings stay on this computer and are never uploaded; we only keep your email address.</p>
+    <form id="sf">
+      <div class="field"><input type="email" id="em" placeholder="you@example.com" autocomplete="email" required value="${escapeHtml(signupEmail || pendingEmail())}"></div>
+      <label class="consent"><input type="checkbox" id="mk"> <span>Email me tips, new features and offers from Retake and other HackrLife tools. Unsubscribe at any time.</span></label>
+      ${signupError ? `<div class="notice">${escapeHtml(signupError)}</div>` : ''}
+      <button class="btn rec big" type="submit" id="sbtn">Email me a sign-in link</button>
+    </form>
+    <div class="perks"><span>${ic('check', 14)} No password</span><span>${ic('check', 14)} No card</span><span>${ic('check', 14)} No time limit</span><span>${ic('check', 14)} No watermark</span></div>
+    <p class="fine2">By signing up you agree to our <a href="https://github.com/HackrLife/chrome-extensions/blob/main/retake/docs/privacy.md" target="_blank" rel="noopener">privacy notice</a>.</p>
+  </div>`;
+  $('#sf').onsubmit = (e) => {
+    e.preventDefault();
+    submitSignup($('#em').value.trim(), $('#mk').checked);
+  };
+}
+
+async function submitSignup(email, marketing) {
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    signupError = 'Enter a valid email address.';
+    return render();
+  }
+  signupError = '';
+  signupEmail = email;
+  signupMarketing = marketing;
+  const b = $('#sbtn');
+  if (b) (b.disabled = true), (b.textContent = 'Sending…');
+  try {
+    await sendLink(email, { marketing });
+    signupState = 'sent';
+  } catch (e) {
+    signupError = /rate|seconds|limit/i.test(e.message) ? 'Too many emails sent just now. Wait a minute and try again.' : `Couldn’t send the email: ${e.message}`;
+  }
+  render();
+}
+
 function render() {
   const el = $('#recorder');
+  if (!session && view === 'setup') return renderSignup(el);
   if (!supported) {
     el.innerHTML = `<div class="head"><span class="title">Record your screen</span></div><div class="notice">This browser can’t record the screen. Retake works in Chrome, Edge and other Chromium browsers on a computer.</div>`;
     return;
@@ -759,7 +832,11 @@ window.addEventListener('beforeunload', (e) => {
   if (recorder && view !== 'saving') e.preventDefault();
 });
 
+const back = await finishFromUrl().catch((e) => ({ error: e.message }));
+if (back?.error) signupError = `That sign-in link didn’t work (${back.error}). Send a new one.`;
+session = back?.session || (await getSession());
+paintAccount();
 await loadDevices();
 mediaFiles = await listFiles().catch(() => []);
 render();
-ensureCam();
+if (session) ensureCam();
