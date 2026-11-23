@@ -5,6 +5,7 @@ import { fmtClock, escapeHtml } from './core/format.js';
 import { currentTheme, toggleTheme } from './core/theme.js';
 import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
 import { openStudio } from './core/studio.js';
+import { openPresenter } from './core/presenter.js';
 import { ACCEPT, listFiles, addFiles, removeFile, buildDeck, releaseDeck } from './core/media.js';
 
 const $ = (s, root = document) => root.querySelector(s);
@@ -161,7 +162,7 @@ function renderSetup(el) {
           <span class="words">${mediaBusy || (mediaFiles.length ? `${mediaFiles.length} file${mediaFiles.length > 1 ? 's' : ''}` : 'PDF, images or video')}</span>
           <label class="btn outline add">${ic('upload', 14)} Add<input type="file" id="mediaIn" accept="${ACCEPT}" multiple hidden></label></div>
         ${mediaFiles.length ? `<div class="mfiles">${mediaFiles.map((f) => `<span class="mfile">${ic(f.kind === 'video' ? 'play' : f.kind === 'pdf' ? 'slides' : 'shot', 12)}<b>${escapeHtml(f.name)}</b><button data-rm="${f.id}" title="Remove">${ic('x', 12)}</button></span>`).join('')}</div>` : ''}
-        <p class="hint">${prefs.source === 'slides' ? 'Your slides fill the video, with your camera in the corner. Change slides with the arrow keys or a clicker.' : 'Choose Slides above to present them, with your camera and this script.'}</p>
+        <p class="hint">${prefs.source === 'slides' ? 'Opens full screen: your slides with your camera bubble, a pen and other drawing tools, and this script on top. Change slides with the arrow keys or a clicker.' : 'Choose Slides above to present them, with your camera and this script.'}</p>
       </div>
     </div>
     <div class="section row" style="gap:8px;flex-wrap:wrap">
@@ -173,7 +174,7 @@ function renderSetup(el) {
     <div class="note">${ic('help', 14)}<span>${
       studio
         ? prefs.source === 'slides'
-          ? 'Records your slides full frame, with your camera bubble and voice. No screen sharing needed.'
+          ? 'Presents your slides full screen with your camera bubble. Draw on them as you talk; it’s all recorded. No screen sharing needed.'
           : prefs.source === 'camera'
           ? 'Records just your camera and microphone. You’ll see yourself before anything is recorded.'
           : 'Records just your microphone. Export it as an audio file, or as a video with a sound wave.'
@@ -272,6 +273,8 @@ async function enterStudio() {
       return render();
     }
     errorText = '';
+    // Presenting fills the whole screen. Ask now, while the click still counts.
+    document.documentElement.requestFullscreen?.().catch(() => {});
     const btn = $('#choose');
     btn.disabled = true;
     try {
@@ -282,6 +285,28 @@ async function enterStudio() {
     }
   }
   stopCam();
+  if (prefs.source === 'slides') {
+    const host = document.createElement('div');
+    document.body.append(host);
+    openPresenter(host, {
+      mic: prefs.mic,
+      micId: prefs.micId,
+      cam: prefs.cam,
+      camId: prefs.camId,
+      deck,
+      countdown: prefs.countdown,
+      script: scriptFor(),
+      tickerURL: TICKER,
+      onFinish: (id) => (location.href = `pages/editor.html#${encodeURIComponent(id)}`),
+      onClose: () => {
+        releaseDeck(deck);
+        host.remove();
+        render();
+        ensureCam();
+      },
+    });
+    return;
+  }
   const home = $('main.home');
   const host = document.createElement('main');
   host.className = 'studio-host';
