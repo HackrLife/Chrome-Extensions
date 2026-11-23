@@ -2,6 +2,7 @@
 
 ## 0.1.0 (in development)
 
+- Extension: Slides. Upload a PDF, images or videos and present them full screen with your camera bubble, drawing tools and the teleprompter; the recording is exactly that frame. PDFs show their first page in the file list.
 - Extension: Window and Screen recording now start. Chrome only lets a page use the screen it asked for, so a small Retake window shows the picker and records, minimised.
 - Extension: the controls are hidden before the recorder starts, so they are not in a tab recording's first frames.
 - Extension: if the recorder fails to report back when you finish, the recording is kept and opened in My recordings, instead of being thrown away.

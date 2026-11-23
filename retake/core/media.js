@@ -64,6 +64,24 @@ async function loadPdfJs() {
 
 // Returns slides: { kind: 'image', url, w, h, label } or { kind: 'video', url, label }.
 // PDF pages are drawn once at 1920 pixels wide and kept as JPEG images.
+// The first page of a PDF as a small picture, and how many pages it has, for the file list.
+export async function pdfPreview(blob, width = 320) {
+  const lib = await loadPdfJs();
+  const pdf = await lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()), isEvalSupported: false }).promise;
+  try {
+    const page = await pdf.getPage(1);
+    const v1 = page.getViewport({ scale: 1 });
+    const viewport = page.getViewport({ scale: width / v1.width });
+    const c = document.createElement('canvas');
+    c.width = Math.round(viewport.width);
+    c.height = Math.round(viewport.height);
+    await page.render({ canvasContext: c.getContext('2d'), viewport }).promise;
+    return { url: c.toDataURL('image/jpeg', 0.8), pages: pdf.numPages };
+  } finally {
+    await (pdf.destroy?.() ?? pdf.cleanup?.());
+  }
+}
+
 export async function buildDeck(files, onProgress = () => {}) {
   const slides = [];
   for (const f of files) {
@@ -75,7 +93,8 @@ export async function buildDeck(files, onProgress = () => {}) {
       slides.push({ kind: 'video', url: URL.createObjectURL(f.blob), label: f.name });
     } else if (f.kind === 'pdf') {
       const lib = await loadPdfJs();
-      const pdf = await lib.getDocument({ data: new Uint8Array(await f.blob.arrayBuffer()) }).promise;
+      // No eval: extension pages forbid it, and pdf.js draws fonts just as well without.
+      const pdf = await lib.getDocument({ data: new Uint8Array(await f.blob.arrayBuffer()), isEvalSupported: false }).promise;
       for (let n = 1; n <= pdf.numPages; n++) {
         onProgress(`${f.name}: page ${n} of ${pdf.numPages}`);
         const page = await pdf.getPage(n);

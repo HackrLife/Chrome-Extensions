@@ -3,7 +3,7 @@
   "name": "Retake: Screen Recorder",
   "short_name": "Retake",
   "version": "0.1.0",
-  "description": "Free screen recorder with a teleprompter, retakes and drawing tools. Saves on your computer: no account, no upload, no watermark.",
+  "description": "Free screen recorder for explainer videos: slides with your camera, a teleprompter, retakes and drawing. Saved on your computer.",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Retake",

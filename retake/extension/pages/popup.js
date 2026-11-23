@@ -104,15 +104,15 @@ function setupView() {
   const restricted = !pageAllowed();
   let notice = '';
   if (error) notice = `<div class="notice err">${escapeHtml(error)}</div>`;
-  else if (restricted && (present || prefs.source === 'tab') && prefs.source !== 'camera' && prefs.source !== 'voice')
+  else if (restricted && (present || prefs.source === 'tab'))
     notice = `<div class="notice warn">Chrome doesn’t let extensions record or draw on this page. Open a website${present ? '' : ', or choose Window or Full screen'}.</div>`;
-  else if (!present && permission !== 'granted' && (prefs.mic || prefs.camera || prefs.source === 'camera' || prefs.source === 'voice'))
+  else if (!present && permission !== 'granted' && (prefs.mic || prefs.camera || prefs.source === 'camera' || prefs.source === 'voice' || prefs.source === 'slides'))
     notice = `<div class="notice">Retake needs your permission to use the microphone and camera. <button data-act="permissions">Allow access</button></div>`;
 
-  const studio = prefs.source === 'camera' || prefs.source === 'voice';
+  const studio = prefs.source === 'camera' || prefs.source === 'voice' || prefs.source === 'slides';
   const words = (script.text.match(/\S+/g) || []).length;
-  const sourceSeg = `<div class="seg tall five">
-      ${[['tab', 'tab', 'This tab'], ['window', 'window', 'Window'], ['screen', 'screen', 'Screen'], ['camera', 'cam', 'Camera'], ['voice', 'mic', 'Voice']]
+  const sourceSeg = `<div class="seg tall five six">
+      ${[['tab', 'tab', 'This tab'], ['window', 'window', 'Window'], ['screen', 'screen', 'Screen'], ['slides', 'slides', 'Slides'], ['camera', 'cam', 'Camera'], ['voice', 'mic', 'Voice']]
         .map(([v, icon, label]) => `<button class="${prefs.source === v ? 'on' : ''}" data-source="${v}">${ic(icon, 22)}${label}</button>`)
         .join('')}
     </div>`;
@@ -131,7 +131,12 @@ function setupView() {
     </div>`;
 
   const startDisabled = (restricted && (present || prefs.source === 'tab')) || busy;
-  const studioNote = prefs.source === 'camera' ? 'Records just your camera and voice, in a new tab.' : 'Records just your voice, in a new tab.';
+  const studioNote =
+    prefs.source === 'slides'
+      ? 'Add your slides in the next tab, then present them full screen with your camera.'
+      : prefs.source === 'camera'
+        ? 'Records just your camera and voice, in a new tab.'
+        : 'Records just your voice, in a new tab.';
   return `${header()}
     ${notice}
     <div class="seg" style="margin-bottom:14px;padding:3px">
@@ -242,6 +247,11 @@ async function act(name) {
   if (name === 'permissions') return chrome.tabs.create({ url: chrome.runtime.getURL('pages/welcome.html#permissions') });
   if (name === 'script') {
     await send({ type: 'open-prompter', edit: true, windowId: tab?.windowId });
+    return window.close();
+  }
+  if (name === 'start' && prefs.source === 'slides') {
+    if (permission !== 'granted' && (prefs.mic || prefs.camera)) return chrome.tabs.create({ url: chrome.runtime.getURL('pages/welcome.html#permissions') });
+    await chrome.tabs.create({ url: chrome.runtime.getURL('pages/slides.html') });
     return window.close();
   }
   if (name === 'start' && (prefs.source === 'camera' || prefs.source === 'voice')) {

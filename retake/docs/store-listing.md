@@ -10,8 +10,8 @@ Ready to submit. Paste each section into the matching field in the Chrome Web St
 
 **Name** (from the package): Retake: Screen Recorder
 
-**Summary** (from the package, 129 of 132 characters):
-Free screen recorder with a teleprompter, retakes and drawing tools. Saves on your computer: no account, no upload, no watermark.
+**Summary** (from the package, 128 of 132 characters):
+Free screen recorder for explainer videos: slides with your camera, a teleprompter, retakes and drawing. Saved on your computer.
 
 **Category:** Workflow & Planning
 
@@ -19,7 +19,10 @@ Free screen recorder with a teleprompter, retakes and drawing tools. Saves on yo
 
 **Description:**
 
-Retake records your tab, a window, your whole screen, just your camera or just your voice, and keeps everything on your computer. There is no account, no upload, no time limit and no watermark.
+Retake records your tab, a window, your whole screen, your slides, just your camera or just your voice, and keeps everything on your computer. There is no account, no upload, no time limit and no watermark.
+
+Present your slides with your face
+Add a PDF, images or short videos. Retake shows them full screen with your camera in a round bubble, a pen and other drawing tools, and your script on top, and records exactly what your viewers should see. Change slides with the arrow keys or a clicker. No screen sharing needed.
 
 Read while you record
 Paste your script into the teleprompter. It scrolls while you record, stops when you pause, and goes back when you retake. Add [cue] labels to mark where each part starts. The script is never in the video.
@@ -54,8 +57,8 @@ Retake is free. Questions and bug reports: https://github.com/HackrLife/Chrome-E
 **Graphic assets:**
 - Store icon: the 128 × 128 icon is in the package.
 - Screenshots: the store takes up to five, at 1280 × 800. Two sets are ready; use one, not a mix.
-  - Captioned (recommended for the store), in `docs/store-assets/`: `screenshot-1-record.png`, `screenshot-2-teleprompter.png`, `screenshot-3-retake.png`, `screenshot-4-editor.png`, `screenshot-5-export.png`.
-  - Clean product screens, no captions, in `docs/screenshots/` (ten, for the website, the newsletter and X). If you prefer clean ones in the store, use `02`, `05`, `06`, `07` and `08`.
+  - Captioned (recommended for the store), in `docs/store-assets/`, in this order: `screenshot-1-record.png`, `screenshot-2-slides.png`, `screenshot-3-teleprompter.png`, `screenshot-4-retake.png`, `screenshot-5-editor.png`.
+  - Clean product screens, no captions, in `docs/screenshots/` (ten, for the website, the newsletter and X). If you prefer clean ones in the store, use `02`, `04`, `06`, `07` and `08`.
 - Small promo tile, 440 × 280: `docs/store-assets/promo-tile-440x280.png`
 - Marquee promo tile, 1400 × 560: `docs/store-assets/marquee-1400x560.png`
 

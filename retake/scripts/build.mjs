@@ -15,9 +15,9 @@ const out = join(dist, 'extension');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, 'extension'), out, { recursive: true });
-// Web-app-only modules (sign-in, slide presenter, PDF reader) stay out of the extension package,
-// so the Web Store build contains no network code and nothing it does not use.
-const WEB_ONLY = ['auth.js', 'presenter.js', 'ink.js', 'vendor'];
+// The web app's sign-in stays out of the extension package, so the Web Store build contains
+// no network code.
+const WEB_ONLY = ['auth.js'];
 cpSync(join(root, 'core'), join(out, 'core'), {
   recursive: true,
   filter: (src) => !WEB_ONLY.some((name) => src === join(root, 'core', name)),

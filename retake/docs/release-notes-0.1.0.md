@@ -4,7 +4,8 @@ First public release of the Retake Chrome extension. Free, with no account, no u
 
 ## What it does
 
-- **Record** a tab, a window, your whole screen, just your camera or just your voice, with your microphone and the tab's sound.
+- **Record** a tab, a window, your whole screen, your slides, just your camera or just your voice, with your microphone and the tab's sound.
+- **Present your slides with your face.** Add a PDF, images or short videos; Retake shows them full screen with your camera bubble, drawing tools and your script, and records it. Arrow keys or a clicker change slides.
 - **Read while you record.** The teleprompter scrolls in a small window, stops when you pause and goes back when you retake. It is never in a tab recording.
 - **Retake** the last part with Alt + Shift + U. Everything before it stays as it was.
 - **Draw on the page** while you record: pen, highlighter, arrows, boxes, circles, text and numbered steps, fading after 3, 5 or 10 seconds if you like. Spotlight, click pulse and keyboard display.

@@ -52,7 +52,7 @@ def watch(page):
     page.on("pageerror", lambda e: errors.append(f"{(page.url or '').split('/')[-1]}: {e}"))
 
 
-def launch(p, profile, fake_media=False, fresh=True):
+def launch(p, profile, fake_media=False, fresh=True, extra=()):
     if fresh:
         shutil.rmtree(profile, ignore_errors=True)
     args = [f"--disable-extensions-except={EXT}", f"--load-extension={EXT}",
@@ -63,6 +63,7 @@ def launch(p, profile, fake_media=False, fresh=True):
     # only switched on for the camera and voice tests.
     if fake_media:
         args += ["--use-fake-device-for-media-stream", "--use-fake-ui-for-media-stream"]
+    args += list(extra)
     ctx = p.chromium.launch_persistent_context(profile, executable_path=CHROME, headless=False, args=args,
                                                no_viewport=True, accept_downloads=True, downloads_path=OUT + "/dl")
     ctx.on("page", watch)
@@ -391,6 +392,28 @@ def main():
             except Exception as e:
                 check(f"{kind}-only recording reaches the editor", False, str(e)[:160])
             st.close()
+        # Slides: upload a PDF and an image, present them with the camera, record, finish.
+        sl = ctx.new_page(); sl.goto(f"chrome-extension://{eid}/pages/slides.html"); time.sleep(1.5)
+        try:
+            here = os.path.dirname(os.path.abspath(__file__))
+            sl.set_input_files("#pick", [os.path.join(here, "deck.pdf"), os.path.join(here, "slide.png")]); time.sleep(1.5)
+            check("slides upload a PDF and an image", sl.locator(".file").count() == 2)
+            sl.click("[data-act=start]"); time.sleep(4)
+            check("presenter opens with the slides", sl.locator("[data-a=start]").count() == 1)
+            sl.click("[data-a=start]"); time.sleep(5)
+            sl.keyboard.press("ArrowRight"); time.sleep(1.5); sl.keyboard.press("ArrowRight"); time.sleep(1.5)
+            sl.click("[data-a=finish]")
+            ok = False
+            for _ in range(60):
+                try:
+                    if "editor.html" in sl.evaluate("location.href"):
+                        ok = True; break
+                except Exception:
+                    pass
+                time.sleep(0.25)
+            check("slides recording reaches the editor", ok, json.dumps(sw.evaluate("chrome.storage.local.get('diagnostics')"))[:300])
+        except Exception as e:
+            check("slides recording reaches the editor", False, str(e)[:200])
         # Teleprompter editor window
         pe = ctx.new_page(); pe.goto(f"chrome-extension://{eid}/pages/prompter.html#edit"); time.sleep(1)
         check("teleprompter editor loads", pe.locator("textarea").count() >= 1)

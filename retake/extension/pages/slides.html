@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Retake · Present slides</title>
+<link rel="stylesheet" href="../core/tokens.css" />
+<link rel="stylesheet" href="page.css" />
+<style>
+  .wrap { padding-top: 26px; }
+  .hero h1 { font-size: 28px; }
+  .hero p { margin-top: 6px; }
+  .drop { border: 2px dashed var(--line); border-radius: 18px; background: var(--surface); padding: 22px 24px; text-align: center; transition: border-color .15s, background .15s; }
+  .drop.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, var(--surface)); }
+  .dropic { width: 54px; height: 54px; border-radius: 16px; background: var(--bg); display: grid; place-items: center; margin: 0 auto; }
+  .drop b { display: block; font-size: 16px; margin: 10px 0 4px; }
+  .drop p { color: var(--muted); font-size: 13.5px; margin: 0 0 16px; }
+  .files { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; margin-top: 14px; }
+  .file { position: relative; background: var(--surface); border-radius: 12px; box-shadow: 0 0 0 1px var(--line); overflow: hidden; }
+  .file .th { aspect-ratio: 16 / 9; background: var(--bg) center / cover no-repeat; display: grid; place-items: center; color: var(--muted); }
+  .file .nm { font-size: 12.5px; font-weight: 600; padding: 8px 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file .nm small { display: block; font-weight: 500; color: var(--muted); }
+  .file button { position: absolute; top: 6px; right: 6px; width: 26px; height: 26px; border-radius: 50%; border: 0; background: rgba(17,19,24,.7); color: #fff; display: grid; place-items: center; cursor: pointer; }
+  .opts { display: grid; gap: 8px; margin-top: 18px; }
+  .opt { display: flex; align-items: center; gap: 12px; background: var(--surface); border-radius: 14px; box-shadow: 0 0 0 1px var(--line); padding: 11px 18px; font-size: 14px; font-weight: 600; }
+  .opt span.s { font-weight: 500; color: var(--muted); font-size: 13px; }
+  .opt .push { margin-left: auto; display: flex; align-items: center; gap: 12px; }
+  .startbtn { width: 100%; height: 54px; margin-top: 18px; font-size: 16px; }
+  .notice { margin-top: 14px; padding: 12px 14px; border-radius: 12px; font-size: 13.5px; background: #fdecec; color: #9b1c20; }
+</style>
+</head>
+<body>
+  <div class="top"><span id="logo"></span><span class="title">Present slides</span>
+    <div class="right"><a class="btn outline" style="height:38px;font-size:13px;text-decoration:none" href="library.html">My recordings</a><a class="btn outline" style="height:38px;font-size:13px;text-decoration:none" href="help.html">Help</a></div>
+  </div>
+  <div class="wrap" id="setup"></div>
+  <div id="stage"></div>
+  <input type="file" id="pick" multiple hidden />
+  <script type="module" src="slides.js"></script>
+</body>
+</html>
