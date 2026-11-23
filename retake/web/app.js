@@ -1,18 +1,25 @@
 import { newRecording, putRecording, deleteRecording, requestPersistence } from './core/db.js';
 import { SegmentRecorder, compositeWithCamera } from './core/recorder.js';
 import { ic, LOGO } from './core/icons.js';
-import { fmtClock } from './core/format.js';
+import { fmtClock, escapeHtml } from './core/format.js';
+import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
+import { openStudio } from './core/studio.js';
 
 const $ = (s, root = document) => root.querySelector(s);
 const TICKER = new URL('./core/ticker.js', import.meta.url).href;
 const PREFS_KEY = 'retake.prefs';
-const prefs = Object.assign({ source: 'monitor', mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true }, readPrefs());
+const prefs = Object.assign({ source: 'monitor', mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true, prompter: false, script: '', speed: 1 }, readPrefs());
 
 const SOURCES = {
-  browser: { icon: 'tab', name: 'A tab', sub: 'One Chrome tab', label: 'a Chrome tab' },
-  window: { icon: 'window', name: 'A window', sub: 'Any app window', label: 'a window' },
-  monitor: { icon: 'screen', name: 'Full screen', sub: 'Everything you see', label: 'your full screen' },
+  browser: { icon: 'tab', name: 'Tab', sub: 'One Chrome tab', label: 'a Chrome tab' },
+  window: { icon: 'window', name: 'Window', sub: 'Any app window', label: 'a window' },
+  monitor: { icon: 'screen', name: 'Screen', sub: 'Everything you see', label: 'your full screen' },
+  camera: { icon: 'cam', name: 'Camera', sub: 'Just you', label: 'your camera' },
+  voice: { icon: 'mic', name: 'Voice', sub: 'Just your voice', label: 'your voice' },
 };
+const studioMode = () => prefs.source === 'camera' || prefs.source === 'voice';
+const camOn = () => prefs.source === 'camera' || (prefs.cam && prefs.source !== 'voice');
+const scriptFor = () => (prefs.prompter && prefs.script.trim() ? { text: prefs.script, speed: prefs.speed, size: 28 } : null);
 
 function readPrefs() {
   try {
@@ -57,6 +64,8 @@ let view = 'setup';
 let display = null, surface = 'monitor', mic = null, cam = null, camPending = false;
 let composite = null, mixed = null, audioCtx = null;
 let recorder = null, recordingId = null, pip = null, timer = null, countdownLeft = 0, retakeCountdown = true;
+let prompter = null, pagePrompter = null, pagePrEl = null;
+const pr = () => prompter || pagePrompter; // script in the floating window, or on this page if it can't open
 let devices = { audioinput: [], videoinput: [] };
 let errorText = '', warnText = '';
 
@@ -86,14 +95,14 @@ async function loadDevices() {
 }
 
 async function ensureCam() {
-  if (!prefs.cam || cam || camPending) return;
+  if (!camOn() || cam || camPending) return;
   camPending = true;
   try {
     cam = await navigator.mediaDevices.getUserMedia({ video: { deviceId: prefs.camId ? { exact: prefs.camId } : undefined, width: { ideal: 640 }, height: { ideal: 480 } } });
     warnText = '';
     await loadDevices();
   } catch {
-    prefs.cam = false;
+    if (prefs.source !== 'camera') prefs.cam = false;
     savePrefs();
     warnText = 'Camera blocked. Allow it from the icon in the address bar, then turn the camera on again.';
   }
@@ -133,43 +142,106 @@ function render() {
 }
 
 function renderSetup(el) {
+  const studio = studioMode();
   el.innerHTML = `
     <div class="head"><span class="title">New recording</span><span class="chip">${ic('lock', 14)} Saved on this device</span></div>
     <div class="tlabel">What to record</div>
     <div class="sources">${Object.entries(SOURCES)
-      .map(([k, s]) => `<button class="src ${prefs.source === k ? 'on' : ''}" data-src="${k}">${ic(s.icon, 22)}<b>${s.name}</b><span>${s.sub}</span></button>`)
+      .map(([k, s]) => `<button class="src ${prefs.source === k ? 'on' : ''}" data-src="${k}">${ic(s.icon, 20)}<b>${s.name}</b><span>${s.sub}</span></button>`)
       .join('')}</div>
     <div class="section"><div class="tlabel">Microphone</div>
-      <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic)}<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button></div></div>
-    <div class="section"><div class="tlabel">Camera bubble</div>
-      <div class="devrow">${prefs.cam ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, prefs.cam)}<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button></div></div>
+      <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic || prefs.source === 'voice')}${prefs.source === 'voice' ? '' : `<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button>`}</div></div>
+    ${prefs.source === 'voice' ? '' : `<div class="section"><div class="tlabel">${prefs.source === 'camera' ? 'Camera' : 'Camera bubble'}</div>
+      <div class="devrow">${camOn() ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, camOn())}${prefs.source === 'camera' ? '' : `<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button>`}</div></div>`}
+    <div class="section"><div class="tlabel row" style="justify-content:space-between">Teleprompter<button class="toggle ${prefs.prompter ? 'on' : ''}" id="prT" aria-label="Teleprompter on or off" aria-pressed="${prefs.prompter}"></button></div>
+      ${prefs.prompter ? `<textarea class="script" id="script" rows="5" placeholder="Paste or write your script. ${studio ? 'It scrolls under your camera' : 'It scrolls in the floating window'} while you record and is never in the video.">${escapeHtml(prefs.script)}</textarea>
+      <div class="row prrow"><span class="lbl2">Speed</span><div class="seg">${[[0.75, 'Slow'], [1, 'Normal'], [1.5, 'Fast']].map(([v, l]) => `<button class="${prefs.speed === v ? 'on' : ''}" data-speed="${v}">${l}</button>`).join('')}</div><span class="words" id="words"></span></div>` : '<p class="hint">Read your script while you record. Only you see it.</p>'}
+    </div>
     <div class="section row" style="gap:8px;flex-wrap:wrap">
-      <button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>
+      ${studio ? '' : `<button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>`}
       <button class="chip ${prefs.countdown ? 'on' : ''}" id="cdC">${ic('fade', 14)} 3s countdown</button>
     </div>
     ${notices()}
-    <button class="btn rec big" id="choose">${ic(SOURCES[prefs.source].icon, 18)} Choose ${SOURCES[prefs.source].label}</button>
-    <div class="note">${ic('help', 14)}<span>Next you pick exactly what to share and see it here before anything is recorded. Drawing on the screen while recording needs the Chrome extension; arrows, boxes and zooms can be added afterwards in the editor.</span></div>`;
-  el.querySelectorAll('[data-src]').forEach((b) => (b.onclick = () => ((prefs.source = b.dataset.src), savePrefs(), render())));
-  $('#micT').onclick = () => ((prefs.mic = !prefs.mic), savePrefs(), render());
-  $('#camT').onclick = () => {
+    <button class="btn rec big" id="choose">${ic(SOURCES[prefs.source].icon, 18)} ${studio ? 'Continue' : `Choose ${SOURCES[prefs.source].label}`}</button>
+    <div class="note">${ic('help', 14)}<span>${
+      studio
+        ? prefs.source === 'camera'
+          ? 'Records just your camera and microphone. You’ll see yourself before anything is recorded.'
+          : 'Records just your microphone. Export it as an audio file, or as a video with a sound wave.'
+        : 'Next you pick exactly what to share and see it here before anything is recorded. Drawing on the screen while recording needs the Chrome extension; arrows, boxes and zooms can be added afterwards in the editor.'
+    }</span></div>`;
+  el.querySelectorAll('[data-src]').forEach(
+    (b) =>
+      (b.onclick = () => {
+        prefs.source = b.dataset.src;
+        savePrefs();
+        if (!camOn()) stopCam();
+        render();
+        ensureCam();
+      }),
+  );
+  const on = (sel, fn) => {
+    const n = $(sel);
+    if (n) n.onclick = fn;
+  };
+  on('#micT', () => ((prefs.mic = !prefs.mic), savePrefs(), render()));
+  on('#camT', () => {
     prefs.cam = !prefs.cam;
     savePrefs();
-    if (!prefs.cam) stopCam();
+    if (!camOn()) stopCam();
     render();
     ensureCam();
-  };
-  $('#soundC').onclick = () => ((prefs.sound = !prefs.sound), savePrefs(), render());
-  $('#cdC').onclick = () => ((prefs.countdown = !prefs.countdown), savePrefs(), render());
+  });
+  on('#prT', () => ((prefs.prompter = !prefs.prompter), savePrefs(), render()));
+  el.querySelectorAll('[data-speed]').forEach((b) => (b.onclick = () => ((prefs.speed = Number(b.dataset.speed)), savePrefs(), render())));
+  const ta = $('#script');
+  if (ta) {
+    const words = () => {
+      const n = wordCount(ta.value);
+      $('#words').textContent = n ? `${n} words · about ${readingMinutes(ta.value, prefs.speed)} min` : '';
+    };
+    ta.oninput = () => ((prefs.script = ta.value), savePrefs(), words());
+    words();
+  }
+  on('#soundC', () => ((prefs.sound = !prefs.sound), savePrefs(), render()));
+  on('#cdC', () => ((prefs.countdown = !prefs.countdown), savePrefs(), render()));
   $('#micSel').onchange = (e) => ((prefs.micId = e.target.value), savePrefs());
-  $('#camSel').onchange = (e) => {
-    prefs.camId = e.target.value;
-    savePrefs();
-    stopCam();
-    ensureCam();
-  };
-  $('#choose').onclick = choose;
+  const camSel = $('#camSel');
+  if (camSel)
+    camSel.onchange = (e) => {
+      prefs.camId = e.target.value;
+      savePrefs();
+      stopCam();
+      ensureCam();
+    };
+  $('#choose').onclick = studio ? enterStudio : choose;
   mount($('#selfSlot'), selfVideo, cam);
+}
+
+// Camera-only and voice-only recordings happen in the studio, with the script under the camera.
+function enterStudio() {
+  stopCam();
+  const home = $('main.home');
+  const host = document.createElement('main');
+  host.className = 'studio-host';
+  home.after(host);
+  home.hidden = true;
+  openStudio(host, {
+    kind: prefs.source === 'camera' ? 'camera' : 'voice',
+    mic: prefs.mic || prefs.source === 'voice',
+    micId: prefs.micId,
+    camId: prefs.camId,
+    countdown: prefs.countdown,
+    script: scriptFor(),
+    tickerURL: TICKER,
+    onFinish: (id) => (location.href = `pages/editor.html#${encodeURIComponent(id)}`),
+    onClose: () => {
+      host.remove();
+      home.hidden = false;
+      render();
+      ensureCam();
+    },
+  });
 }
 
 function sourceLabel() {
@@ -216,6 +288,7 @@ function renderLive(el) {
       : `<div class="status"><span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>${paused ? 'Paused' : 'Recording'} <span class="clock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</span></div>`;
   el.innerHTML = `
     ${previewBox()}
+    ${pagePrompter && !pip ? '<div id="prPage"></div>' : ''}
     <div class="live">${status}
       ${view === 'retake' ? retakeBox() : view === 'countdown' ? '<button class="link" id="cancel">Cancel</button>' : `
       <div class="controls">
@@ -229,6 +302,7 @@ function renderLive(el) {
   bindLive(el);
   mount($('#pvSlot'), screenVideo, display);
   mount($('#pvCam'), selfVideo, cam);
+  if (pagePrompter && $('#prPage')) $('#prPage').append(pagePrEl);
 }
 
 function retakeBox() {
@@ -269,6 +343,7 @@ const PIP_CSS = `html,body{margin:0;height:100%;background:#111318;color:#fff;fo
 .ib:hover{background:rgba(255,255,255,.18)}
 .btn.sm{height:38px;padding:0 14px;font-size:13px;margin-left:auto}
 .btn.outline.sm{margin-left:0;background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+.pscript{height:190px;flex:none;padding:8px 10px 0}.pscript .rp{border-radius:12px;background:#1b1e24}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}.pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}`;
 
 function pipBar() {
@@ -285,7 +360,8 @@ function pipBar() {
 
 function openFloat() {
   if (!canFloat || pip) return Promise.resolve(pip);
-  const size = cam ? { width: 300, height: 380 } : { width: 340, height: 92 };
+  const script = scriptFor();
+  const size = cam ? { width: script ? 420 : 300, height: script ? 560 : 380 } : { width: script ? 440 : 340, height: script ? 300 : 92 };
   let p;
   try {
     p = documentPictureInPicture.requestWindow(size);
@@ -306,10 +382,17 @@ function openFloat() {
       s.textContent = PIP_CSS;
       w.document.head.append(s);
       w.document.title = 'Retake';
-      w.document.body.innerHTML = `<div class="wrap">${cam ? '<div class="cam"><div class="ring" id="camSlot"></div></div>' : ''}<div class="bar" id="bar"></div><div class="psrc">${ic(SOURCES[surface]?.icon || 'screen', 12)} Recording ${sourceLabel()}</div></div>`;
+      w.document.body.innerHTML = `<div class="wrap">${cam ? '<div class="cam"><div class="ring" id="camSlot"></div></div>' : ''}${script ? '<div class="pscript" id="prSlot"></div>' : ''}<div class="bar" id="bar"></div><div class="psrc">${ic(SOURCES[surface]?.icon || 'screen', 12)} Recording ${sourceLabel()}</div></div>`;
       if (cam) mount(w.document.getElementById('camSlot'), selfVideo, cam);
+      if (script) {
+        pagePrompter?.destroy();
+        pagePrompter = null;
+        prompter = mountPrompter(w.document.getElementById('prSlot'), script);
+        prompter.setRecording(view === 'recording');
+      }
       w.addEventListener('pagehide', () => {
         pip = null;
+        prompter = null;
         refresh();
       });
       w.addEventListener('keydown', onKey);
@@ -444,6 +527,11 @@ async function go() {
   await putRecording(rec);
   requestPersistence();
   await pipP;
+  if (!pip && scriptFor()) {
+    pagePrEl = document.createElement('div');
+    pagePrEl.className = 'pageprompt';
+    pagePrompter = mountPrompter(pagePrEl, scriptFor());
+  }
   await countdownThen(prefs.countdown, () => recorder.begin());
 }
 
@@ -458,6 +546,7 @@ async function countdownThen(withCountdown, fn) {
   }
   await fn();
   view = 'recording';
+  pr()?.setRecording(true);
   refresh();
   clearInterval(timer);
   timer = setInterval(tick, 250);
@@ -467,17 +556,20 @@ async function togglePause() {
   if (!recorder) return;
   if (view === 'recording') {
     view = 'paused';
+    pr()?.setRecording(false);
     refresh();
     await recorder.endSegment();
   } else if (view === 'paused') {
     await recorder.begin();
     view = 'recording';
+    pr()?.setRecording(true);
     refresh();
   }
 }
 
 async function askRetake() {
   if (!recorder || (view !== 'recording' && view !== 'paused')) return;
+  pr()?.setRecording(false);
   if (recorder.recording) await recorder.endSegment();
   if (!recorder.segments.length) return refresh();
   view = 'retake';
@@ -486,11 +578,15 @@ async function askRetake() {
 
 async function confirmRetake() {
   await recorder.discardLast();
+  pr()?.rewind();
   await countdownThen(retakeCountdown, () => recorder.begin({ retake: true }));
 }
 
 function stopAll() {
   clearInterval(timer);
+  prompter?.destroy();
+  pagePrompter?.destroy();
+  prompter = pagePrompter = null;
   composite?.stop();
   for (const s of [display, mic, cam, mixed]) s?.getTracks().forEach((t) => t.stop());
   audioCtx?.close();

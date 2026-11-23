@@ -100,6 +100,41 @@ function chooseDesktop(source) {
   });
 }
 
+// ---------- teleprompter window ----------
+// A small separate window, so it is never in a tab recording. Shown at the top centre of the
+// browser window, near the laptop camera.
+async function openPrompter({ edit = false, windowId } = {}) {
+  const { prompterWindowId } = await chrome.storage.session.get('prompterWindowId');
+  let base = null;
+  try {
+    base = windowId != null ? await chrome.windows.get(windowId) : await chrome.windows.getLastFocused();
+  } catch {}
+  const width = edit ? 560 : 640, height = edit ? 440 : 240;
+  const left = base ? Math.round(base.left + (base.width - width) / 2) : undefined;
+  const top = base ? base.top + (edit ? 80 : 4) : undefined;
+  if (prompterWindowId) {
+    try {
+      await chrome.windows.get(prompterWindowId);
+      await chrome.windows.update(prompterWindowId, edit ? { focused: true } : { left, top, width, height });
+      return;
+    } catch {}
+  }
+  const w = await chrome.windows.create({ url: chrome.runtime.getURL(`pages/prompter.html${edit ? '#edit' : ''}`), type: 'popup', width, height, left, top, focused: edit });
+  await chrome.storage.session.set({ prompterWindowId: w.id });
+}
+
+async function closePrompter() {
+  const { prompterWindowId } = await chrome.storage.session.get('prompterWindowId');
+  if (!prompterWindowId) return;
+  await chrome.storage.session.remove('prompterWindowId');
+  chrome.windows.remove(prompterWindowId).catch(() => {});
+}
+
+chrome.windows.onRemoved.addListener(async (id) => {
+  const { prompterWindowId } = await chrome.storage.session.get('prompterWindowId');
+  if (id === prompterWindowId) chrome.storage.session.remove('prompterWindowId');
+});
+
 // ---------- recording lifecycle ----------
 
 async function start({ options, tabId, windowId, size }) {
@@ -164,6 +199,10 @@ async function start({ options, tabId, windowId, size }) {
 
   // The tools live on the recorded tab. For a window or screen they sit on the current tab, when it allows it.
   await injectOverlay(tabId);
+  if (options.prompter) {
+    const { script } = await chrome.storage.local.get('script');
+    if (script?.text?.trim()) await openPrompter({ windowId }).catch(() => {});
+  }
   await runCountdown(options.countdown !== false);
   return { ok: true };
 }
@@ -241,6 +280,7 @@ async function finish() {
   }
   await closeOffscreen();
   await removeOverlay(s.tabId);
+  await closePrompter();
   const id = s.recordingId;
   await setState({ ...IDLE }, true);
   if (result && result.segments > 0) {
@@ -261,6 +301,7 @@ async function cancel() {
   await rec('abort').catch(() => {});
   await closeOffscreen();
   await removeOverlay(s.tabId);
+  await closePrompter();
   if (s.recordingId) await deleteRecording(s.recordingId).catch(() => {});
   await setState({ ...IDLE }, true);
 }
@@ -313,6 +354,7 @@ const handlers = {
   'set-option': async (m) => setState({ options: { ...(await getState()).options, [m.key]: m.value } }),
   'clear-notice': () => setState({ notice: null, error: null }),
   'source-ended': () => finish(),
+  'open-prompter': (m) => openPrompter({ edit: !!m.edit, windowId: m.windowId }),
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {

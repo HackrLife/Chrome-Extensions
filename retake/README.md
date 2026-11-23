@@ -6,7 +6,8 @@ A free screen recorder: a Chrome extension, a desktop app for Mac and Windows, a
 
 | Area | Feature |
 | --- | --- |
-| Record | Tab, window or full screen · microphone · tab sound · camera bubble · 3-second countdown · pause and resume |
+| Record | Tab, window or full screen · camera only · voice only · microphone · tab sound · camera bubble · 3-second countdown · pause and resume |
+| Record | Teleprompter: the script scrolls while you record, stops when you pause, goes back on a retake, and is kept out of the video |
 | Record | **Retake the last part**: throws away everything since the last pause and records it again |
 | Record | Screenshot while recording · keyboard shortcuts · recording keeps going in the background |
 | On screen | Pen, highlighter, line, arrow, box, circle, text, numbered steps · drawings fade after 3, 5 or 10 seconds · spotlight · click pulse · key display (shortcuts only, never ordinary typing) |
@@ -21,7 +22,9 @@ A free screen recorder: a Chrome extension, a desktop app for Mac and Windows, a
 retake/
 ├── core/          shared code with no Chrome dependency (used by the extension and the web app)
 │   ├── db.js          IndexedDB storage for recordings and their video chunks
-│   ├── recorder.js    segment recorder and camera compositing for the web app
+│   ├── recorder.js    segment recorder, camera compositing and the voice card
+│   ├── prompter.js    teleprompter
+│   ├── studio.js      camera-only and voice-only recording with the script under the camera
 │   ├── timeline.js    segments, trim and play order
 │   ├── callouts.js    callout model and renderer (editor preview and export share it)
 │   ├── exporter.js    renders the final video from segments, trim and callouts

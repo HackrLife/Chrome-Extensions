@@ -14,6 +14,7 @@ const DEFAULTS = {
   spotlight: false,
   countdown: true,
   keys: false,
+  prompter: false,
 };
 
 let prefs = { ...DEFAULTS };
@@ -26,12 +27,14 @@ let meterRaf = 0;
 let clockTimer = 0;
 let busy = false;
 let error = '';
+let script = { text: '', speed: 1 };
 
 const send = (msg) => chrome.runtime.sendMessage(msg);
 
 async function init() {
-  const stored = await chrome.storage.local.get('prefs');
+  const stored = await chrome.storage.local.get(['prefs', 'script']);
   prefs = { ...DEFAULTS, ...(stored.prefs || {}) };
+  script = { text: '', speed: 1, ...(stored.script || {}) };
   [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   const res = await send({ type: 'get-state' }).catch(() => null);
   state = res?.state || { status: 'idle' };
@@ -98,13 +101,15 @@ function setupView() {
   const restricted = !pageAllowed();
   let notice = '';
   if (error) notice = `<div class="notice err">${escapeHtml(error)}</div>`;
-  else if (restricted && (present || prefs.source === 'tab'))
+  else if (restricted && (present || prefs.source === 'tab') && prefs.source !== 'camera' && prefs.source !== 'voice')
     notice = `<div class="notice warn">Chrome doesn’t let extensions record or draw on this page. Open a website${present ? '' : ', or choose Window or Full screen'}.</div>`;
-  else if (!present && permission !== 'granted' && (prefs.mic || prefs.camera))
+  else if (!present && permission !== 'granted' && (prefs.mic || prefs.camera || prefs.source === 'camera' || prefs.source === 'voice'))
     notice = `<div class="notice">Retake needs your permission to use the microphone and camera. <button data-act="permissions">Allow access</button></div>`;
 
-  const sourceSeg = `<div class="seg tall">
-      ${[['tab', 'tab', 'This tab'], ['window', 'window', 'Window'], ['screen', 'screen', 'Full screen']]
+  const studio = prefs.source === 'camera' || prefs.source === 'voice';
+  const words = (script.text.match(/\S+/g) || []).length;
+  const sourceSeg = `<div class="seg tall five">
+      ${[['tab', 'tab', 'This tab'], ['window', 'window', 'Window'], ['screen', 'screen', 'Screen'], ['camera', 'cam', 'Camera'], ['voice', 'mic', 'Voice']]
         .map(([v, icon, label]) => `<button class="${prefs.source === v ? 'on' : ''}" data-source="${v}">${ic(icon, 22)}${label}</button>`)
         .join('')}
     </div>`;
@@ -115,13 +120,15 @@ function setupView() {
     <div class="section"><div class="tlabel">Record</div>${sourceSeg}</div>
     <div class="section"><div class="tlabel">Sound and camera</div>
       <div class="stack">
-        <div class="row">${deviceSelect('mic')}<div class="meter" id="meter">${level}</div><button class="toggle ${prefs.mic ? 'on' : ''}" data-toggle="mic" aria-label="Microphone" aria-pressed="${prefs.mic}"></button></div>
-        <div class="row">${deviceSelect('cam')}<button class="toggle ${prefs.camera ? 'on' : ''}" data-toggle="camera" aria-label="Camera bubble" aria-pressed="${prefs.camera}"></button></div>
+        <div class="row">${deviceSelect('mic')}<div class="meter" id="meter">${level}</div>${prefs.source === 'voice' ? '' : `<button class="toggle ${prefs.mic ? 'on' : ''}" data-toggle="mic" aria-label="Microphone" aria-pressed="${prefs.mic}"></button>`}</div>
+        ${prefs.source === 'voice' ? '' : `<div class="row">${deviceSelect('cam')}${prefs.source === 'camera' ? '' : `<button class="toggle ${prefs.camera ? 'on' : ''}" data-toggle="camera" aria-label="Camera bubble" aria-pressed="${prefs.camera}"></button>`}</div>`}
+        <div class="line">${ic('text', 18)}Teleprompter<span class="muted-s">${words ? `${words} words` : 'No script yet'}</span><button class="mini-link" data-act="script">${words ? 'Edit' : 'Write'}</button><button class="toggle ${prefs.prompter ? 'on' : ''}" data-toggle="prompter" aria-label="Teleprompter" aria-pressed="${prefs.prompter}"></button></div>
         ${prefs.source === 'tab' ? `<div class="line">${ic('speaker', 18)}Include sound from this tab<button class="toggle ${prefs.tabAudio ? 'on' : ''}" data-toggle="tabAudio" aria-pressed="${prefs.tabAudio}" aria-label="Tab sound"></button></div>` : ''}
       </div>
     </div>`;
 
   const startDisabled = (restricted && (present || prefs.source === 'tab')) || busy;
+  const studioNote = prefs.source === 'camera' ? 'Records just your camera and voice, in a new tab.' : 'Records just your voice, in a new tab.';
   return `${header()}
     ${notice}
     <div class="seg" style="margin-bottom:14px;padding:3px">
@@ -131,16 +138,16 @@ function setupView() {
     ${present ? '' : recordSections}
     <div class="section"><div class="tlabel">${present ? 'On screen' : 'While recording'}</div>
       <div class="chips">
-        ${chip('clickPulse', 'click', 'Click pulse')}
-        ${chip('spotlight', 'spot', 'Spotlight')}
+        ${studio ? '' : chip('clickPulse', 'click', 'Click pulse')}
+        ${studio ? '' : chip('spotlight', 'spot', 'Spotlight')}
         ${present ? '' : chip('countdown', 'fade', '3s countdown')}
-        ${chip('keys', 'keys', 'Show keys')}
+        ${studio ? '' : chip('keys', 'keys', 'Show keys')}
       </div>
     </div>
     <button class="btn ${present ? 'dark' : 'rec'} start" data-act="${present ? 'present' : 'start'}" ${startDisabled ? 'disabled' : ''}>
       ${present ? ic('pen', 18) : '<span class="dot" style="width:12px;height:12px;color:#fff"></span>'}${busy ? 'Starting…' : present ? 'Start presenting' : 'Start recording'}
     </button>
-    <div class="foot">${ic('lock', 13)}${present ? 'Nothing is recorded in this mode.' : 'Saved on this device. No account, no upload, no time limit.'}</div>`;
+    <div class="foot">${ic('lock', 13)}${present ? 'Nothing is recorded in this mode.' : studio ? studioNote : 'Saved on this device. No account, no upload, no time limit.'}</div>`;
 }
 
 function elapsed() {
@@ -230,6 +237,15 @@ async function act(name) {
   if (name === 'library') return chrome.tabs.create({ url: chrome.runtime.getURL('pages/library.html') });
   if (name === 'help') return chrome.tabs.create({ url: chrome.runtime.getURL('pages/help.html') });
   if (name === 'permissions') return chrome.tabs.create({ url: chrome.runtime.getURL('pages/welcome.html#permissions') });
+  if (name === 'script') {
+    await send({ type: 'open-prompter', edit: true, windowId: tab?.windowId });
+    return window.close();
+  }
+  if (name === 'start' && (prefs.source === 'camera' || prefs.source === 'voice')) {
+    if (permission !== 'granted') return chrome.tabs.create({ url: chrome.runtime.getURL('pages/welcome.html#permissions') });
+    await chrome.tabs.create({ url: chrome.runtime.getURL(`pages/studio.html#${prefs.source}`) });
+    return window.close();
+  }
 
   if (name === 'start' || name === 'present') {
     if (name === 'start' && permission !== 'granted' && (prefs.mic || prefs.camera)) {
