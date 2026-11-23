@@ -225,6 +225,10 @@ document.addEventListener('click', async (e) => {
   if (b.id === 'restore') return $('#restoreFile').click();
   if (b.id === 'clearOld') return clearOld();
   if (b.id === 'newRec') {
+    if (window.retakeDesktop) {
+      window.retakeDesktop.call('new-recording');
+      return;
+    }
     if (!IS_EXTENSION) {
       location.href = '../index.html#record';
       return;

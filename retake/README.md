@@ -1,6 +1,6 @@
 # Retake
 
-A free screen recorder for Chrome, as an extension and as a web app. Record a tab, a window or your whole screen, fix a fluffed line with **Retake**, add callouts in the editor, and export MP4, WebM, GIF or a vertical cut for Shorts. Nothing leaves your computer: no account, no upload, no time limit, no watermark.
+A free screen recorder: a Chrome extension, a desktop app for Mac and Windows, and a web app. Record a tab, a window or your whole screen, fix a fluffed line with **Retake**, add callouts in the editor, and export MP4, WebM, GIF or a vertical cut for Shorts. Nothing leaves your computer: no account, no upload, no time limit, no watermark.
 
 ## Features (version 0.1)
 
@@ -36,6 +36,7 @@ retake/
 │   ├── background.js  service worker: recording state, commands, coordination
 │   ├── content/overlay.js   control bar, drawing tools, spotlight, keys, camera bubble, retake dialog
 │   └── pages/         popup, offscreen recorder, editor, library, welcome, help, camera
+├── desktop/       the desktop app (Electron): panel, camera bubble, controls, drawing overlay
 ├── web/           the web app: home page and recorder (editor and library come from extension/pages)
 ├── scripts/       build.mjs (extension), build-web.mjs (web app)
 ├── vercel.json    web app hosting settings
@@ -57,6 +58,20 @@ node scripts/build.mjs --zip    # also writes dist/retake-<version>.zip for the 
 ```
 
 Load it in Chrome: open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and choose `retake/dist/extension`.
+
+### Desktop app
+
+Requires Node 18 or later.
+
+```
+cd retake/desktop
+npm install
+npm start              # run it
+npm run dist:mac       # build dist/Retake-<version>-arm64.dmg and the Intel version
+npm run dist:win       # build the Windows installer
+```
+
+The camera bubble floats over every app and is filmed on full-screen recordings. The control bar floats too but is hidden from the recording. Drawing and the cursor spotlight work on full-screen recordings. On a Mac, allow Retake under System Settings › Privacy & Security › Screen Recording the first time, then reopen it. Recordings stay on the computer; exports go to Downloads/Retake.
 
 ### Web app
 

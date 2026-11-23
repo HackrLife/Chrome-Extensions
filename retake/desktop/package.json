@@ -1,0 +1,40 @@
+{
+  "name": "retake-desktop",
+  "productName": "Retake",
+  "version": "0.1.0",
+  "description": "Free screen recorder with retake, drawing on screen, a camera bubble and callouts. Everything stays on your computer.",
+  "author": "HackrLife",
+  "private": true,
+  "main": "src/main.cjs",
+  "scripts": {
+    "shared": "node scripts/copy-shared.mjs",
+    "start": "npm run shared && electron .",
+    "dist": "npm run shared && electron-builder",
+    "dist:mac": "npm run shared && electron-builder --mac",
+    "dist:win": "npm run shared && electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "com.hackrlife.retake",
+    "productName": "Retake",
+    "files": ["src/**", "shared/**", "package.json"],
+    "directories": { "output": "dist", "buildResources": "build" },
+    "mac": {
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.png",
+      "target": [{ "target": "dmg", "arch": ["arm64", "x64"] }],
+      "hardenedRuntime": false,
+      "extendInfo": {
+        "NSCameraUsageDescription": "Retake shows your camera in a bubble while you record.",
+        "NSMicrophoneUsageDescription": "Retake records your voice while you record your screen.",
+        "NSScreenCaptureUsageDescription": "Retake records your screen."
+      }
+    },
+    "win": { "icon": "build/icon.png", "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "nsis": { "oneClick": true, "perMachine": false },
+    "linux": { "icon": "build/icon.png", "target": ["AppImage"], "category": "Video" }
+  }
+}
