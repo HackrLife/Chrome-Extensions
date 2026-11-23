@@ -8,10 +8,10 @@ import { openStudio } from './core/studio.js';
 const $ = (s, root = document) => root.querySelector(s);
 const TICKER = new URL('./core/ticker.js', import.meta.url).href;
 const PREFS_KEY = 'retake.prefs';
-const prefs = Object.assign({ source: 'monitor', mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true, prompter: false, script: '', speed: 1 }, readPrefs());
+const prefs = Object.assign({ source: 'browser', mic: true, micId: '', cam: false, camId: '', sound: true, countdown: true, prompter: false, script: '', speed: 1 }, readPrefs());
 
 const SOURCES = {
-  browser: { icon: 'tab', name: 'Tab', sub: 'One Chrome tab', label: 'a Chrome tab' },
+  browser: { icon: 'tab', name: 'Tab', sub: 'One Chrome tab', label: 'a tab' },
   window: { icon: 'window', name: 'Window', sub: 'Any app window', label: 'a window' },
   monitor: { icon: 'screen', name: 'Screen', sub: 'Everything you see', label: 'your full screen' },
   camera: { icon: 'cam', name: 'Camera', sub: 'Just you', label: 'your camera' },
@@ -169,7 +169,11 @@ function renderSetup(el) {
         ? prefs.source === 'camera'
           ? 'Records just your camera and microphone. You’ll see yourself before anything is recorded.'
           : 'Records just your microphone. Export it as an audio file, or as a video with a sound wave.'
-        : 'Next you pick exactly what to share and see it here before anything is recorded. Drawing on the screen while recording needs the Chrome extension; arrows, boxes and zooms can be added afterwards in the editor.'
+        : prefs.source === 'browser'
+          ? 'Chrome then shows all your open tabs in a scrolling list with previews. Pick one and it fills the whole video. You see it here before anything is recorded.'
+          : prefs.source === 'monitor'
+            ? 'Chrome then shows your screens. To pick one of your open tabs instead, choose Tab above, or click Chrome Tab at the top of Chrome’s window.'
+            : 'Chrome then shows your open app windows. You see your choice here before anything is recorded.'
     }</span></div>`;
   el.querySelectorAll('[data-src]').forEach(
     (b) =>
