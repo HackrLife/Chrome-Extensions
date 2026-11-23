@@ -51,11 +51,13 @@ Recordings are stored in Chrome on your computer and saved to your Downloads fol
 
 Retake is free. Questions and bug reports: https://github.com/HackrLife/Chrome-Extensions/issues
 
-**Graphic assets** (all in `docs/store-assets/`):
-- Store icon: the 128 × 128 icon is in the package
-- Screenshots, 1280 × 800, in this order: `screenshot-1-record.png`, `screenshot-2-teleprompter.png`, `screenshot-3-retake.png`, `screenshot-4-editor.png`, `screenshot-5-export.png`
-- Small promo tile, 440 × 280: `promo-tile-440x280.png`
-- Marquee promo tile, 1400 × 560: `marquee-1400x560.png`
+**Graphic assets:**
+- Store icon: the 128 × 128 icon is in the package.
+- Screenshots: the store takes up to five, at 1280 × 800. Two sets are ready; use one, not a mix.
+  - Captioned (recommended for the store), in `docs/store-assets/`: `screenshot-1-record.png`, `screenshot-2-teleprompter.png`, `screenshot-3-retake.png`, `screenshot-4-editor.png`, `screenshot-5-export.png`.
+  - Clean product screens, no captions, in `docs/screenshots/` (ten, for the website, the newsletter and X). If you prefer clean ones in the store, use `02`, `05`, `06`, `07` and `08`.
+- Small promo tile, 440 × 280: `docs/store-assets/promo-tile-440x280.png`
+- Marquee promo tile, 1400 × 560: `docs/store-assets/marquee-1400x560.png`
 
 **Additional fields:**
 - Homepage URL: https://chrome-extensions-retake.vercel.app
@@ -82,6 +84,8 @@ Retake records the user's tab, window, screen, camera or microphone, and lets th
 **Data usage:** tick none of the data types. Retake does not collect or transmit any user data. Tick all three certifications.
 
 **Privacy policy URL:** https://chrome-extensions-retake.vercel.app/privacy.html
+
+**Test instructions** (optional field): none needed. Retake has no sign-in. Open any website, click the Retake icon and press Start recording.
 
 ## Distribution tab
 
