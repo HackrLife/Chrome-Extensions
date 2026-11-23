@@ -14,11 +14,12 @@ const CSS = `
 .rp-head button:hover{background:rgba(255,255,255,.12)}
 .rp-v{font-size:12px;font-weight:600;color:rgba(255,255,255,.7);min-width:32px;text-align:center;font-variant-numeric:tabular-nums}
 .rp-sep{width:1px;height:16px;background:rgba(255,255,255,.15);margin:0 4px}
-.rp-scroll{flex:1;min-height:0;overflow-y:auto;padding:0 22px;scrollbar-width:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 70%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 18%,#000 70%,transparent 100%)}
+.rp-scroll{flex:1;min-height:0;overflow-y:auto;padding:0 28px 0 30px;scrollbar-width:none;-webkit-mask-image:linear-gradient(to bottom,transparent 0,#000 12%,#000 82%,transparent 100%);mask-image:linear-gradient(to bottom,transparent 0,#000 12%,#000 82%,transparent 100%)}
 .rp-scroll::-webkit-scrollbar{display:none}
-.rp-text{font-weight:600;line-height:1.45;white-space:pre-wrap;padding:24px 0 80vh}
-.rp-mark{position:absolute;left:4px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:9px solid #f0464b;transform:translateY(-50%);pointer-events:none}
-.rp-empty{color:rgba(255,255,255,.5);font-weight:500}`;
+.rp-text{font-weight:500;line-height:1.55;letter-spacing:-.005em;color:#f3f4f6;white-space:pre-wrap;text-wrap:pretty;padding:18px 0 80vh;max-width:62ch}
+.rp-mark{position:absolute;left:10px;width:0;height:0;border-top:7px solid transparent;border-bottom:7px solid transparent;border-left:9px solid #f0464b;transform:translateY(-50%);pointer-events:none}
+.rp-empty{color:rgba(255,255,255,.5);font-weight:500}
+.rp-cue{display:inline-block;font-size:.62em;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:#f0464b;background:rgba(240,70,75,.12);padding:2px 8px;border-radius:6px;margin:4px 0;vertical-align:middle}`;
 
 const BASE = 34; // pixels a second at 1× and 28px text
 
@@ -49,16 +50,19 @@ export function mountPrompter(root, { text = '', speed = 1, size = 28 } = {}) {
   let held = false, recording = false, pos = 0, last = 0, raf = 0, alive = true;
   const marks = [];
 
+  // Stage directions and timings in square brackets, like [0:20 – 0:50] or [show the canvas],
+  // are shown as small labels, not read out.
+  const esc = (x) => x.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
   const setText = (t) => {
     body.classList.toggle('rp-empty', !t.trim());
-    body.textContent = t.trim() ? t : 'No script yet.';
+    body.innerHTML = t.trim() ? esc(t).replace(/\[([^\]\n]{1,80})\]/g, '<span class="rp-cue">$1</span>') : 'No script yet.';
   };
   const apply = () => {
     body.style.fontSize = `${size}px`;
     root.querySelector('.rp-v').textContent = `${+speed.toFixed(2)}×`;
     root.querySelector('[data-a=hold]').innerHTML = ic(held ? 'play' : 'pause', 15);
     live.classList.toggle('on', recording && !held);
-    root.querySelector('.rp-mark').style.top = `${38 + 24 + size * 0.73}px`;
+    root.querySelector('.rp-mark').style.top = `${38 + 18 + size * 0.78}px`;
   };
   const actions = {
     hold: () => (held = !held),

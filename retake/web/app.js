@@ -269,9 +269,9 @@ function previewBox() {
 
 function renderReady(el) {
   const floatNote = canFloat
-    ? `Press Start and a small floating window with ${cam ? 'your camera and ' : ''}the controls stays on top of every app while you record.`
+    ? `Press Start and a floating window stays on top of every app: the controls, a live preview of what you’re recording${cam ? ' with your camera' : ''}${scriptFor() ? ', and your script' : ''}.`
     : 'Keep this tab open to pause, retake or finish.';
-  const camNote = cam && surface === 'monitor' ? ' On a full-screen recording the camera bubble is filmed where you leave it, so drag it where you want it.' : '';
+  const camNote = surface === 'monitor' ? ' On a full-screen recording the floating window is filmed too, so record a tab or a window to keep it out of the video.' : '';
   el.innerHTML = `
     <div class="head"><span class="title">Ready to record</span><button class="chip" id="change">${ic('retake', 14)} Change</button></div>
     ${previewBox()}
@@ -345,21 +345,30 @@ function bindLive(root) {
 
 // ---------- floating window (Document Picture-in-Picture) ----------
 // Holds the camera bubble, so you can see yourself over any app, and the controls.
-const PIP_CSS = `html,body{margin:0;height:100%;background:#111318;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
-.wrap{height:100%;display:flex;flex-direction:column}
-.cam{flex:1;min-height:0;display:grid;place-items:center;padding:12px 12px 0}
-.cam .ring{height:100%;aspect-ratio:1;max-width:100%;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px #fff}
-.cam video{width:100%;height:100%;object-fit:cover}
-.bar{height:56px;flex:none;display:flex;align-items:center;gap:8px;padding:0 12px}
-.psrc{font-size:11px;color:rgba(255,255,255,.6);padding:0 14px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:none;display:flex;gap:6px;align-items:center}
-.pclock{font-variant-numeric:tabular-nums;font-weight:600;font-size:17px;min-width:56px}
-.pnum{font-size:26px;font-weight:700}.plabel{font-size:13px;font-weight:600;flex:1}
-.ib{width:38px;height:38px;border-radius:12px;border:0;background:rgba(255,255,255,.1);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
-.ib:hover{background:rgba(255,255,255,.18)}
-.btn.sm{height:38px;padding:0 14px;font-size:13px;margin-left:auto}
-.btn.outline.sm{margin-left:0;background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
-.pscript{height:190px;flex:none;padding:8px 10px 0}.pscript .rp{border-radius:12px;background:#1b1e24}
+const PIP_CSS = `html,body{margin:0;height:100%;background:#0d0f13;color:#fff;font-family:Inter,system-ui,sans-serif;overflow:hidden}
+.wrap{height:100%;display:flex;flex-direction:column;gap:10px;padding:10px;box-sizing:border-box}
+.bar{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 8px 0 14px;background:#171a20;border-radius:14px}
+.pclock{font-variant-numeric:tabular-nums;font-weight:650;font-size:17px;min-width:54px}
+.psrc{font-size:12px;color:rgba(255,255,255,.55);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;min-width:0;display:flex;gap:6px;align-items:center}
+.pnum{font-size:24px;font-weight:700}.plabel{font-size:13px;font-weight:600;flex:1}
+.ib{width:38px;height:38px;border-radius:11px;border:0;background:rgba(255,255,255,.08);color:#fff;display:grid;place-items:center;cursor:pointer;flex:none}
+.ib:hover{background:rgba(255,255,255,.16)}
+.btn.sm{height:38px;padding:0 14px;font-size:13px;flex:none}
+.btn.outline.sm{background:transparent;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.3)}
+.pv{position:relative;flex:none;aspect-ratio:16/9;background:#000;border-radius:14px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.pv.off{aspect-ratio:auto;height:34px;background:#171a20}
+.pv.off .pvs,.pv.off .pvface{display:none}
+.pvs,.pvs video{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.pvface{position:absolute;left:10px;bottom:10px;width:24%;aspect-ratio:1;border-radius:50%;overflow:hidden;box-shadow:0 0 0 2px #fff,0 4px 16px rgba(0,0,0,.4)}
+.pvface video{width:100%;height:100%;object-fit:cover}
+.pvtag{position:absolute;top:8px;left:8px;font-size:11px;font-weight:600;background:rgba(13,15,19,.75);padding:4px 9px;border-radius:999px;color:rgba(255,255,255,.85)}
+.pvbtn{position:absolute;top:6px;right:6px;height:24px;border:0;border-radius:8px;background:rgba(13,15,19,.75);color:#fff;font:600 11px Inter,system-ui,sans-serif;padding:0 9px;cursor:pointer}
+.pv.off .pvtag{top:9px}.pv.off .pvbtn{top:5px}
+.pscript{flex:1;min-height:0}.pscript .rp{border-radius:14px;background:#171a20}
 .dot{width:10px;height:10px;border-radius:50%;flex:none}.pulse{animation:pulse 1.4s ease-in-out infinite}@keyframes pulse{50%{opacity:.35}}`;
+
+const pipScreen = mkVideo();
+let previewOn = true;
 
 function pipBar() {
   const paused = view === 'paused' || view === 'retake';
@@ -368,15 +377,28 @@ function pipBar() {
     return `<span class="plabel">Retake last part?</span><button class="btn outline sm" id="rtNo">Keep</button><button class="btn rec sm" id="rtYes" style="margin-left:0">${ic('retake', 14)} Retake</button>`;
   return `<span class="dot ${paused ? '' : 'pulse'}" style="background:${paused ? '#f79009' : 'var(--rec)'}"></span>
     <span class="pclock" id="clock">${fmtClock(recorder?.elapsed() || 0)}</span>
+    <span class="psrc">${paused ? 'Paused' : ''}</span>
     <button class="ib" id="pause" title="${paused ? 'Resume' : 'Pause'} (Alt+Shift+K)">${ic(paused ? 'play' : 'pause', 18)}</button>
     <button class="ib" id="retake" title="Retake the last part (Alt+Shift+U)">${ic('retake', 18)}</button>
     <button class="btn rec sm" id="finish">${ic('check', 14)} Finish</button>`;
 }
 
+function pipPreview(doc) {
+  const box = doc.getElementById('pv');
+  if (!box) return;
+  box.classList.toggle('off', !previewOn);
+  doc.getElementById('pvBtn').textContent = previewOn ? 'Hide' : 'Show preview';
+  if (previewOn) {
+    mount(doc.getElementById('pvScreen'), pipScreen, display);
+    if (cam) mount(doc.getElementById('camSlot'), selfVideo, cam);
+  }
+}
+
 function openFloat() {
   if (!canFloat || pip) return Promise.resolve(pip);
   const script = scriptFor();
-  const size = cam ? { width: script ? 420 : 300, height: script ? 560 : 380 } : { width: script ? 440 : 340, height: script ? 300 : 92 };
+  // Tall and wide: controls, a live preview of what is recorded, then the script.
+  const size = script ? { width: 560, height: 820 } : { width: 520, height: 380 };
   let p;
   try {
     p = documentPictureInPicture.requestWindow(size);
@@ -397,12 +419,21 @@ function openFloat() {
       s.textContent = PIP_CSS;
       w.document.head.append(s);
       w.document.title = 'Retake';
-      w.document.body.innerHTML = `<div class="wrap">${cam ? '<div class="cam"><div class="ring" id="camSlot"></div></div>' : ''}${script ? '<div class="pscript" id="prSlot"></div>' : ''}<div class="bar" id="bar"></div><div class="psrc">${ic(SOURCES[surface]?.icon || 'screen', 12)} Recording ${sourceLabel()}</div></div>`;
-      if (cam) mount(w.document.getElementById('camSlot'), selfVideo, cam);
+      w.document.body.innerHTML = `<div class="wrap">
+        <div class="bar" id="bar"></div>
+        <div class="pv" id="pv"><div class="pvs" id="pvScreen"></div>${cam ? '<div class="pvface" id="camSlot"></div>' : ''}
+          <span class="pvtag">Recording ${sourceLabel()}</span><button class="pvbtn" id="pvBtn"></button></div>
+        ${script ? '<div class="pscript" id="prSlot"></div>' : ''}</div>`;
+      w.document.getElementById('pvBtn').onclick = () => {
+        previewOn = !previewOn;
+        pipPreview(w.document);
+        if (!script) w.resizeTo(w.outerWidth, previewOn ? 380 : 150);
+      };
+      pipPreview(w.document);
       if (script) {
         pagePrompter?.destroy();
         pagePrompter = null;
-        prompter = mountPrompter(w.document.getElementById('prSlot'), script);
+        prompter = mountPrompter(w.document.getElementById('prSlot'), { ...script, size: 21 });
         prompter.setRecording(view === 'recording');
       }
       w.addEventListener('pagehide', () => {
@@ -514,8 +545,8 @@ async function go() {
   // Must come first, while the click still counts: the floating window needs it.
   const pipP = canFloat ? openFloat().then((w) => w || openBubble()) : openBubble();
   const tracks = [];
-  // On a full-screen recording the floating camera bubble is already in the picture.
-  if (cam && surface !== 'monitor') {
+  // The camera is drawn into the video, so it is there whatever is shared.
+  if (cam) {
     composite = compositeWithCamera(display, cam, TICKER);
     tracks.push(...composite.stream.getVideoTracks());
   } else tracks.push(...display.getVideoTracks());
