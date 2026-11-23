@@ -2,6 +2,11 @@
 
 ## 0.1.0 (in development)
 
+- Extension, ready for the Chrome Web Store: the package now leaves out the web app's sign-in, slide presenter and PDF reader, so it contains no network code.
+- Extension: the teleprompter window keeps its size on Linux systems that opened it full screen over the page.
+- Editor: a callout shows straight away when you add it, instead of starting invisible at the beginning of its fade.
+- Extension: the launcher fits the Chrome popup without scrolling.
+
 - Web app: free sign-up with an emailed link before recording; marketing emails only with an unticked opt-in box.
 - Web app: Slides opens a full-screen presenter with camera bubble, drawing tools and script.
 

@@ -15,7 +15,13 @@ const out = join(dist, 'extension');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 cpSync(join(root, 'extension'), out, { recursive: true });
-cpSync(join(root, 'core'), join(out, 'core'), { recursive: true });
+// Web-app-only modules (sign-in, slide presenter, PDF reader) stay out of the extension package,
+// so the Web Store build contains no network code and nothing it does not use.
+const WEB_ONLY = ['auth.js', 'presenter.js', 'ink.js', 'vendor'];
+cpSync(join(root, 'core'), join(out, 'core'), {
+  recursive: true,
+  filter: (src) => !WEB_ONLY.some((name) => src === join(root, 'core', name)),
+});
 
 const manifest = JSON.parse(readFileSync(join(out, 'manifest.json'), 'utf8'));
 console.log(`Built Retake ${manifest.version} -> ${out}`);

@@ -1,8 +1,8 @@
 # Retake privacy policy
 
-Last updated: 23 November 2026 (web app sign-up added)
+Last updated: 24 November 2026
 
-Retake is a screen recorder that runs on your computer, as a Chrome extension, a web app and a desktop app. This policy explains what it does with your information. The short version: your recordings never leave your computer, and the web app keeps only your email address.
+Retake is a screen recorder that runs on your computer, as a Chrome extension, a web app and a desktop app. This policy explains what it does with your information. The short version: your recordings never leave your computer. The Chrome extension collects no data at all, and the web app keeps only your email address.
 
 ## What Retake stores
 

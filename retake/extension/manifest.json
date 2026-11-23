@@ -3,7 +3,7 @@
   "name": "Retake: Screen Recorder",
   "short_name": "Retake",
   "version": "0.1.0",
-  "description": "Free screen recorder with retake, drawing tools, callouts and vertical export. No account, no upload, no time limit.",
+  "description": "Free screen recorder with a teleprompter, retakes and drawing tools. Saves on your computer: no account, no upload, no watermark.",
   "minimum_chrome_version": "116",
   "action": {
     "default_title": "Retake",
@@ -34,28 +34,44 @@
     "downloads",
     "unlimitedStorage"
   ],
-  "optional_host_permissions": ["<all_urls>"],
+  "optional_host_permissions": [
+    "<all_urls>"
+  ],
   "web_accessible_resources": [
     {
-      "resources": ["pages/camera.html", "pages/camera.js", "pages/camera.css"],
-      "matches": ["<all_urls>"]
+      "resources": [
+        "pages/camera.html",
+        "pages/camera.js",
+        "pages/camera.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
     }
   ],
   "commands": {
     "toggle-pause": {
-      "suggested_key": { "default": "Alt+Shift+K" },
+      "suggested_key": {
+        "default": "Alt+Shift+K"
+      },
       "description": "Pause or resume recording"
     },
     "retake": {
-      "suggested_key": { "default": "Alt+Shift+U" },
+      "suggested_key": {
+        "default": "Alt+Shift+U"
+      },
       "description": "Retake the last segment"
     },
     "toggle-draw": {
-      "suggested_key": { "default": "Alt+Shift+D" },
+      "suggested_key": {
+        "default": "Alt+Shift+D"
+      },
       "description": "Turn drawing tools on or off"
     },
     "finish": {
-      "suggested_key": { "default": "Alt+Shift+S" },
+      "suggested_key": {
+        "default": "Alt+Shift+S"
+      },
       "description": "Finish recording"
     }
   }

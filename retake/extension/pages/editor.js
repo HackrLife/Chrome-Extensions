@@ -185,7 +185,7 @@ function draw() {
   if (!rec || video.readyState < 2) return;
   ctx.clearRect(0, 0, cssW, cssH);
   const view = currentView();
-  drawFrame(ctx, video, video.videoWidth, video.videoHeight, dest(), rec.callouts, t, { view });
+  drawFrame(ctx, video, video.videoWidth, video.videoHeight, dest(), rec.callouts, t, { view, solid: !playing });
   const c = selected();
   if (c && !playing) drawSelection(c, view);
 }

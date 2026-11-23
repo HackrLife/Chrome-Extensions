@@ -43,8 +43,8 @@ export function isActive(c, t) {
   return t >= c.start && t <= c.end;
 }
 
-function alphaAt(c, t) {
-  if (!c.animate) return isActive(c, t) ? 1 : 0;
+function alphaAt(c, t, solid = false) {
+  if (!c.animate || solid) return isActive(c, t) ? 1 : 0;
   if (!isActive(c, t)) return 0;
   const a = Math.min(1, (t - c.start) / FADE, (c.end - t) / FADE);
   return Math.max(0, a);
@@ -162,6 +162,8 @@ function drawArrow(ctx, a, b, color, unit) {
 
 // Draw one frame: the visible part of the source into dest, then blur regions, then callouts.
 // source: a video, canvas or image. sw/sh: its natural size.
+// opts.solid draws callouts at full strength, ignoring the fade, so a paused preview shows
+// a callout the moment it is added (its fade starts from nothing at its first frame).
 export function drawFrame(ctx, source, sw, sh, dest, callouts, t, opts = {}) {
   const view = opts.view || viewAt(callouts, t);
   ctx.drawImage(source, view.x * sw, view.y * sh, view.w * sw, view.h * sh, dest.x, dest.y, dest.w, dest.h);
@@ -169,7 +171,7 @@ export function drawFrame(ctx, source, sw, sh, dest, callouts, t, opts = {}) {
 
   for (const c of callouts) {
     if (c.type !== 'blur') continue;
-    const a = alphaAt(c, t);
+    const a = alphaAt(c, t, opts.solid);
     if (a <= 0) continue;
     const p = toCanvas(c.x, c.y, view, dest);
     const q = toCanvas(c.x + c.w, c.y + c.h, view, dest);
@@ -188,7 +190,7 @@ export function drawFrame(ctx, source, sw, sh, dest, callouts, t, opts = {}) {
 
   for (const c of callouts) {
     if (c.type === 'blur' || c.type === 'zoom') continue;
-    const a = alphaAt(c, t);
+    const a = alphaAt(c, t, opts.solid);
     if (a <= 0) continue;
     ctx.save();
     ctx.globalAlpha = a;

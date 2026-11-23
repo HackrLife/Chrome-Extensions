@@ -120,6 +120,11 @@ async function openPrompter({ edit = false, windowId } = {}) {
     } catch {}
   }
   const w = await chrome.windows.create({ url: chrome.runtime.getURL(`pages/prompter.html${edit ? '#edit' : ''}`), type: 'popup', width, height, left, top, focused: edit });
+  // Some Linux window managers ignore the size given at creation and open the window full screen,
+  // which would cover the page being recorded. Setting the bounds again afterwards fixes it.
+  if (w.width !== width || w.height !== height) {
+    await chrome.windows.update(w.id, { left, top, width, height }).catch(() => {});
+  }
   await chrome.storage.session.set({ prompterWindowId: w.id });
 }
 
