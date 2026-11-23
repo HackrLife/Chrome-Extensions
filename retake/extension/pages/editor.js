@@ -862,6 +862,8 @@ function exportModal() {
   const { length } = trimRange(rec);
   const gifTooLong = length > GIF_MAX_SECONDS;
   if (exportState.format === 'gif' && gifTooLong) exportState.format = 'mp4';
+  if (rec.source === 'audio' && !exportState.picked) exportState.format = 'audio';
+  if (exportState.format === 'audio' && !rec.hasAudio) exportState.format = 'mp4';
   const est = estimateBytes(rec, exportState.layout, exportState.quality, exportState.format);
   const mp4ok = !pickMime('mp4').fellBack;
   const m = $('#modal');
@@ -874,12 +876,13 @@ function exportModal() {
     </div>
     <div class="mrow">
       <div><div class="tlabel">Format</div><div class="seg" style="padding:3px">
-        ${['mp4', 'webm', 'gif'].map((f) => `<button class="${exportState.format === f ? 'on' : ''}" data-format="${f}" ${f === 'gif' && gifTooLong ? 'disabled title="GIFs are limited to 60 seconds"' : ''}>${f.toUpperCase()}</button>`).join('')}
+        ${['mp4', 'webm', 'gif', 'audio'].map((f) => `<button class="${exportState.format === f ? 'on' : ''}" data-format="${f}" ${f === 'gif' && gifTooLong ? 'disabled title="GIFs are limited to 60 seconds"' : f === 'audio' && !rec.hasAudio ? 'disabled title="This recording has no sound"' : ''}>${f === 'audio' ? 'Audio' : f.toUpperCase()}</button>`).join('')}
       </div></div>
-      <div><div class="tlabel">Quality</div><label class="field" style="height:44px"><select id="quality" ${exportState.format === 'gif' ? 'disabled' : ''}><option value="1080" ${exportState.quality === 1080 ? 'selected' : ''}>1080p · High</option><option value="720" ${exportState.quality === 720 ? 'selected' : ''}>720p · Smaller file</option></select>${ic('chev', 16)}</label></div>
+      <div><div class="tlabel">Quality</div><label class="field" style="height:44px"><select id="quality" ${exportState.format === 'gif' || exportState.format === 'audio' ? 'disabled' : ''}><option value="1080" ${exportState.quality === 1080 ? 'selected' : ''}>1080p · High</option><option value="720" ${exportState.quality === 720 ? 'selected' : ''}>720p · Smaller file</option></select>${ic('chev', 16)}</label></div>
     </div>
     ${exportState.format === 'mp4' && !mp4ok ? '<div class="notice warn" style="margin-bottom:14px">This version of Chrome can’t make MP4 files, so Retake will save WebM. Update Chrome to get MP4.</div>' : ''}
     ${exportState.format === 'gif' ? '<div class="notice" style="margin-bottom:14px">GIFs have no sound and are limited to 60 seconds. They are made at 10 frames a second.</div>' : ''}
+    ${exportState.format === 'audio' ? '<div class="notice" style="margin-bottom:14px">Saves just the sound, trimmed, as an audio file for a podcast or a voice note.</div>' : ''}
     ${gifTooLong && exportState.format !== 'gif' ? '' : ''}
     <div class="mfoot"><div class="info">${fmtTime(length)} after trimming · about ${fmtBytes(est)}<br><span style="display:inline-flex;align-items:center;gap:5px">${ic('lock', 12)}Made on your computer. No upload.</span></div>
     <button class="btn dark" id="go" style="height:48px;padding:0 22px">${ic('download', 18, 2.2)}Save to Downloads</button></div>
@@ -975,6 +978,7 @@ $('#modal').addEventListener('click', (e) => {
   }
   if (b.dataset.format && !b.disabled) {
     exportState.format = b.dataset.format;
+    exportState.picked = true;
     return exportModal();
   }
   if (b.id === 'go') runExport();

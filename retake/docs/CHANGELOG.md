@@ -2,6 +2,8 @@
 
 ## 0.1.0 (in development)
 
+- Teleprompter (desktop): script scrolls next to the camera, hidden from the video, rewinds on retake.
+- Camera-only and voice-only recordings (desktop); export any recording as audio only (M4A or WebM).
 - Desktop app for Mac and Windows: floating camera bubble, controls kept out of the recording, drawing on screen, cursor spotlight, global shortcuts; same editor, export and library.
 - Web app: record in the browser with floating controls, camera bubble, pause, resume and retake; same editor, export and library as the extension.
 

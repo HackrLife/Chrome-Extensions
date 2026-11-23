@@ -71,7 +71,7 @@ npm run dist:mac       # build dist/Retake-<version>-arm64.dmg and the Intel ver
 npm run dist:win       # build the Windows installer
 ```
 
-The camera bubble floats over every app and is filmed on full-screen recordings. The control bar floats too but is hidden from the recording. Drawing and the cursor spotlight work on full-screen recordings. On a Mac, allow Retake under System Settings › Privacy & Security › Screen Recording the first time, then reopen it. Recordings stay on the computer; exports go to Downloads/Retake.
+Record the screen, a window, just the camera, or just your voice. A teleprompter scrolls your script at the top of the screen, next to the camera, and is never in the video; it pauses when you pause and goes back when you retake. The camera bubble floats over every app and is filmed on full-screen recordings. The control bar floats too but is hidden from the recording. Drawing and the cursor spotlight work on full-screen recordings. On a Mac, allow Retake under System Settings › Privacy & Security › Screen Recording the first time, then reopen it. Recordings stay on the computer; exports go to Downloads/Retake.
 
 ### Web app
 

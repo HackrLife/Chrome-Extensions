@@ -195,3 +195,68 @@ export function compositeWithCamera(display, camera, tickerURL) {
     },
   };
 }
+
+// For voice-only recordings: a simple card with a live level meter, so the recording is still a
+// video the editor can show, trim and export (including as audio only).
+export function voiceCard(mic, tickerURL, { width = 1280, height = 720 } = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const ac = new AudioContext();
+  const analyser = ac.createAnalyser();
+  analyser.fftSize = 512;
+  ac.createMediaStreamSource(mic).connect(analyser);
+  const data = new Uint8Array(analyser.fftSize);
+  const bars = new Array(48).fill(0);
+  const ticker = new Worker(tickerURL);
+  let on = true;
+  const draw = () => {
+    if (!on) return;
+    analyser.getByteTimeDomainData(data);
+    let peak = 0;
+    for (const v of data) peak = Math.max(peak, Math.abs(v - 128) / 128);
+    bars.push(Math.min(1, peak * 2.2));
+    bars.shift();
+    ctx.fillStyle = '#111318';
+    ctx.fillRect(0, 0, width, height);
+    const g = ctx.createRadialGradient(width / 2, height / 2, 40, width / 2, height / 2, width * 0.6);
+    g.addColorStop(0, 'rgba(240,70,75,.16)');
+    g.addColorStop(1, 'rgba(240,70,75,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, width, height);
+    const bw = 10, gap = 8, total = bars.length * (bw + gap) - gap;
+    let x = (width - total) / 2;
+    ctx.fillStyle = '#fff';
+    for (const b of bars) {
+      const h = Math.max(8, b * height * 0.42);
+      ctx.beginPath();
+      ctx.roundRect(x, height / 2 - h / 2, bw, h, 5);
+      ctx.fill();
+      x += bw + gap;
+    }
+    ctx.font = '600 26px Inter, system-ui, sans-serif';
+    ctx.fillStyle = 'rgba(255,255,255,.6)';
+    ctx.textAlign = 'center';
+    ctx.fillText('Voice recording', width / 2, height - 70);
+  };
+  ticker.onmessage = () => {
+    try {
+      draw();
+    } finally {
+      ticker.postMessage({ ack: true });
+    }
+  };
+  ticker.postMessage({ start: true, interval: 33 });
+  const out = canvas.captureStream(30);
+  return {
+    stream: out,
+    stop() {
+      on = false;
+      ticker.postMessage({ stop: true });
+      ticker.terminate();
+      out.getTracks().forEach((t) => t.stop());
+      ac.close();
+    },
+  };
+}

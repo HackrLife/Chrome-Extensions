@@ -15,7 +15,7 @@ protocol.registerSchemesAsPrivileged([{ scheme: 'app', privileges: { standard: t
 
 if (!app.requestSingleInstanceLock()) app.quit();
 
-let panel = null, recorderWin = null, bubble = null, bar = null, overlay = null;
+let panel = null, recorderWin = null, bubble = null, bar = null, overlay = null, prompter = null;
 const viewers = new Set(); // editor and library windows
 let recorderReady = null;
 let opts = null, recordingId = null, target = null, sources = new Map();
@@ -165,6 +165,22 @@ function sizeBar() {
   bar.setBounds({ x: Math.round(b.x + (b.width - w) / 2), y: b.y + b.height - h, width: w, height: h });
 }
 
+// ---------- teleprompter (not filmed) ----------
+// Sits at the top centre, next to where laptop cameras are, so reading keeps you looking at the lens.
+function createPrompter() {
+  const wa = target.display.workArea;
+  const w = Math.min(680, wa.width - 40), h = 210;
+  prompter = makeWindow('src/ui/prompter.html', {
+    x: Math.round(wa.x + (wa.width - w) / 2), y: wa.y + 8, width: w, height: h, minWidth: 360, minHeight: 140,
+    transparent: true, frame: false, hasShadow: false, resizable: true, skipTaskbar: true, alwaysOnTop: true, fullscreenable: false, maximizable: false, minimizable: false,
+  });
+  prompter.setContentProtection(true);
+  prompter.setAlwaysOnTop(true, 'screen-saver', 3);
+  prompter.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  prompter.once('ready-to-show', () => prompter.showInactive());
+  prompter.on('closed', () => (prompter = null));
+}
+
 // ---------- overlay: countdown, drawing, spotlight ----------
 function createOverlay() {
   const b = target.display.bounds;
@@ -233,8 +249,8 @@ async function start(o) {
     res = await rec('prepare', {
       ...o,
       platform: process.platform,
-      maxWidth: o.kind === 'screen' ? Math.min(3840, Math.round(display.size.width * sf)) : 2560,
-      maxHeight: o.kind === 'screen' ? Math.min(2400, Math.round(display.size.height * sf)) : 1600,
+      maxWidth: o.kind === 'screen' ? Math.min(3840, Math.round(display.size.width * sf)) : o.kind === 'audio' ? 1280 : o.kind === 'camera' ? 1920 : 2560,
+      maxHeight: o.kind === 'screen' ? Math.min(2400, Math.round(display.size.height * sf)) : o.kind === 'audio' ? 720 : o.kind === 'camera' ? 1080 : 1600,
       composite: o.kind === 'window' && o.cam,
     });
   } catch (e) {
@@ -246,7 +262,8 @@ async function start(o) {
   if (panel && !panel.isDestroyed()) panel.hide();
   createOverlay();
   createBar();
-  if (o.cam) showBubble(o.camId);
+  if (o.cam && o.kind !== 'audio') showBubble(o.camId);
+  if (o.script?.text?.trim()) createPrompter();
   registerShortcuts();
   if (res.warning) warn(res.warning);
   await countdownThen(o.countdown, () => rec('begin', { retake: false }));
@@ -305,6 +322,7 @@ async function command(c) {
       const r = await rec('discard-last');
       setState({ base: Math.max(0, state.base - r.duration), parts: Math.max(0, state.parts - 1) });
       overlay?.webContents.send('evt:draw', { clear: true });
+      prompter?.webContents.send('evt:prompter', { rewind: true });
       return countdownThen(c.countdown !== false, () => rec('begin', { retake: true }));
     }
     case 'finish':
@@ -351,8 +369,8 @@ async function discard() {
 function teardown() {
   globalShortcut.unregisterAll();
   clearInterval(cursorTimer);
-  for (const w of [overlay, bar]) if (w && !w.isDestroyed()) w.close();
-  overlay = bar = null;
+  for (const w of [overlay, bar, prompter]) if (w && !w.isDestroyed()) w.close();
+  overlay = bar = prompter = null;
   if (!opts?.keepBubble) closeBubble();
   setState(fresh());
 }
@@ -407,6 +425,8 @@ ipcMain.handle('call', async (e, name, data = {}) => {
       return start(data);
     case 'command':
       return command(data);
+    case 'prompter-script':
+      return opts?.script || { text: '' };
     case 'open-library':
       return openViewer('shared/pages/library.html');
     case 'new-recording':

@@ -16,8 +16,18 @@ const MP4_TYPES = [
 ];
 const WEBM_TYPES = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
 
+const AUDIO_TYPES = [
+  ['audio/mp4;codecs=mp4a.40.2', 'm4a'], // AAC: plays everywhere
+  ['audio/webm;codecs=opus', 'webm'],
+  ['audio/webm', 'webm'],
+];
+
 export function pickMime(format) {
   const ok = (t) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(t);
+  if (format === 'audio') {
+    const [mimeType, ext] = AUDIO_TYPES.find(([t]) => ok(t)) || AUDIO_TYPES[2];
+    return { mimeType, ext, fellBack: false };
+  }
   if (format === 'mp4') {
     const t = MP4_TYPES.find(ok);
     if (t) return { mimeType: t, ext: 'mp4', fellBack: false };
@@ -50,6 +60,7 @@ export function estimateBytes(rec, layout, quality, format) {
     const { w, h } = outputSize(rec, layout, quality, format);
     return length * 10 * w * h * 0.25;
   }
+  if (format === 'audio') return (128000 * length) / 8;
   const videoBps = quality >= 1080 ? 6e6 : 3.5e6;
   return ((videoBps + 128000) * length) / 8;
 }
@@ -202,12 +213,12 @@ export async function exportRecording({ rec, getSegmentURL, format, layout, qual
     const audioDest = ac.createMediaStreamDestination();
     srcNode.connect(audioDest);
     const canvasStream = canvas.captureStream(30);
-    const tracks = [...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()];
-    const recorder = new MediaRecorder(new MediaStream(tracks), {
-      mimeType,
-      videoBitsPerSecond: quality >= 1080 ? 6_000_000 : 3_500_000,
-      audioBitsPerSecond: 128_000,
-    });
+    const audioOnly = format === 'audio';
+    const tracks = audioOnly ? audioDest.stream.getAudioTracks() : [...canvasStream.getVideoTracks(), ...audioDest.stream.getAudioTracks()];
+    const recorder = new MediaRecorder(
+      new MediaStream(tracks),
+      audioOnly ? { mimeType, audioBitsPerSecond: 128_000 } : { mimeType, videoBitsPerSecond: quality >= 1080 ? 6_000_000 : 3_500_000, audioBitsPerSecond: 128_000 },
+    );
     const chunks = [];
     recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
     const stopped = new Promise((r) => (recorder.onstop = r));

@@ -1,10 +1,10 @@
 // Hidden window that owns the capture streams and records them in segments.
 import { newRecording, putRecording, deleteRecording, requestPersistence } from '../../shared/core/db.js';
-import { SegmentRecorder, compositeWithCamera } from '../../shared/core/recorder.js';
+import { SegmentRecorder, compositeWithCamera, voiceCard } from '../../shared/core/recorder.js';
 
 const api = window.retakeDesktop;
 const TICKER = new URL('../../shared/core/ticker.js', import.meta.url).href;
-let display = null, mic = null, cam = null, composite = null, mixed = null, ac = null, recorder = null, recordingId = null;
+let display = null, mic = null, cam = null, composite = null, card = null, mixed = null, ac = null, recorder = null, recordingId = null;
 
 async function getScreen(o) {
   const video = { mandatory: { chromeMediaSource: 'desktop', chromeMediaSourceId: o.sourceId, maxWidth: o.maxWidth, maxHeight: o.maxHeight, maxFrameRate: 30 } };
@@ -30,9 +30,17 @@ const ops = {
   async prepare(o) {
     cleanup();
     let warning = '';
-    display = await getScreen(o);
+    if (o.kind === 'camera') {
+      display = await navigator.mediaDevices.getUserMedia({ video: { deviceId: o.camId ? { exact: o.camId } : undefined, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 30 } } });
+    } else if (o.kind === 'audio') {
+      mic = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: o.micId ? { exact: o.micId } : undefined, echoCancellation: true, noiseSuppression: true } });
+      card = voiceCard(mic, TICKER);
+      display = new MediaStream(card.stream.getVideoTracks());
+    } else {
+      display = await getScreen(o);
+    }
     display.getVideoTracks()[0].addEventListener('ended', () => api.call('rec-event', { type: 'ended' }));
-    if (o.mic) {
+    if (o.mic && !mic) {
       try {
         mic = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: o.micId ? { exact: o.micId } : undefined, echoCancellation: true, noiseSuppression: true } });
       } catch {
@@ -64,7 +72,7 @@ const ops = {
     mixed = new MediaStream(tracks);
 
     const set = display.getVideoTracks()[0].getSettings();
-    const rec = newRecording({ source: o.kind === 'window' ? 'window' : 'screen', width: set.width || o.maxWidth, height: set.height || o.maxHeight, hasAudio: audio.length > 0 });
+    const rec = newRecording({ source: { window: 'window', camera: 'camera', audio: 'audio' }[o.kind] || 'screen', width: set.width || o.maxWidth, height: set.height || o.maxHeight, hasAudio: audio.length > 0 });
     recordingId = rec.id;
     recorder = new SegmentRecorder({ stream: mixed, recordingId });
     rec.mimeType = recorder.mimeType;
@@ -99,6 +107,8 @@ const ops = {
 
 function cleanup() {
   composite?.stop();
+  card?.stop();
+  card = null;
   for (const s of [display, mic, cam, mixed]) s?.getTracks().forEach((t) => t.stop());
   ac?.close();
   display = mic = cam = mixed = composite = ac = null;
