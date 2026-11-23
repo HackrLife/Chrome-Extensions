@@ -43,6 +43,12 @@ $('#flow').innerHTML = [
 
 const supported = !!navigator.mediaDevices?.getDisplayMedia && typeof MediaRecorder !== 'undefined';
 const canFloat = 'documentPictureInPicture' in window;
+const canBubble = !!document.pictureInPictureEnabled;
+const floatBlocker = !window.isSecureContext
+  ? 'This page isn’t on a secure (https) address, so the browser won’t show the floating camera and controls over other pages. Open Retake from its https link.'
+  : !canFloat && !canBubble
+    ? 'This browser can’t float a window over other pages, so your camera and controls stay on this tab. Use Chrome or Edge, or the Retake Chrome extension.'
+    : '';
 const REC_DOT = '<span class="recdot"></span>';
 
 // ---------- state ----------
@@ -183,6 +189,7 @@ function renderReady(el) {
   el.innerHTML = `
     <div class="head"><span class="title">Ready to record</span><button class="chip" id="change">${ic('retake', 14)} Change</button></div>
     ${previewBox()}
+    ${floatBlocker ? `<div class="notice">${floatBlocker}</div>` : ''}
     ${notices()}
     <button class="btn rec big" id="go">${REC_DOT} Start recording</button>
     <div class="note">${ic('help', 14)}<span>${floatNote}${camNote} Shortcuts: Alt+Shift+K pause, Alt+Shift+U retake, Alt+Shift+S finish.</span></div>
@@ -386,9 +393,28 @@ function releaseShare() {
   display = mic = null;
 }
 
+let bubbleOn = false;
+function openBubble() {
+  // Fallback when the floating window isn't available: float just the camera over every app.
+  if (!cam || !canBubble || bubbleOn) return Promise.resolve(null);
+  return selfVideo
+    .requestPictureInPicture()
+    .then((w) => {
+      bubbleOn = true;
+      try {
+        navigator.mediaSession.setActionHandler('pause', () => view === 'recording' && togglePause());
+        navigator.mediaSession.setActionHandler('play', () => view === 'paused' && togglePause());
+        navigator.mediaSession.setActionHandler('hangup', () => finish());
+      } catch {}
+      selfVideo.addEventListener('leavepictureinpicture', () => (bubbleOn = false), { once: true });
+      return w;
+    })
+    .catch(() => null);
+}
+
 async function go() {
   // Must come first, while the click still counts: the floating window needs it.
-  const pipP = openFloat();
+  const pipP = canFloat ? openFloat().then((w) => w || openBubble()) : openBubble();
   const tracks = [];
   // On a full-screen recording the floating camera bubble is already in the picture.
   if (cam && surface !== 'monitor') {
@@ -471,6 +497,7 @@ function stopAll() {
   display = mic = cam = mixed = composite = audioCtx = null;
   pip?.close();
   pip = null;
+  if (document.pictureInPictureElement) document.exitPictureInPicture().catch(() => {});
 }
 
 async function finish() {
