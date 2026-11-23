@@ -5,6 +5,9 @@ import { fmtTime, fmtBytes, fmtWhen, escapeHtml } from '../core/format.js';
 import { totalDuration } from '../core/timeline.js';
 import { createZip, readZip } from '../core/zip.js';
 import { saveFile } from '../core/save.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('library');
 
 const $ = (s) => document.querySelector(s);
 const IS_EXTENSION = !!globalThis.chrome?.runtime?.id;
@@ -260,7 +263,7 @@ if (IS_EXTENSION) {
     if (msg?.type === 'state' && msg.state.status === 'idle') load();
   });
 } else {
-  $('#helpLink').href = 'https://github.com/HackrLife/chrome-extensions/issues';
+  $('#helpLink').href = 'https://github.com/HackrLife/Chrome-Extensions/issues';
   $('#helpLink').target = '_blank';
 }
 

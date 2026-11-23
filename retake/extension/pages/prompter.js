@@ -2,6 +2,9 @@
 // recording, stops on pause and goes back on a retake.
 import { mountPrompter, wordCount, readingMinutes } from '../core/prompter.js';
 import { ic } from '../core/icons.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('prompter');
 
 const $ = (s) => document.querySelector(s);
 const stored = (await chrome.storage.local.get('script')).script || {};

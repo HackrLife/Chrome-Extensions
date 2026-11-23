@@ -19,10 +19,39 @@ export function openDB() {
         db.createObjectStore('chunks', { keyPath: ['segmentId', 'seq'] });
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      // A newer Retake (after an update) may need to upgrade the database: let it.
+      db.onversionchange = () => {
+        db.close();
+        dbPromise = null;
+      };
+      resolve(db);
+    };
+    req.onerror = () => {
+      dbPromise = null;
+      reject(req.error);
+    };
   });
   return dbPromise;
+}
+
+// Records written by an older version lack fields added since. Fill them in on read, so new
+// code never meets a missing field and old recordings keep working after every update.
+export const SCHEMA = 1;
+function withDefaults(r) {
+  if (!r) return r;
+  return {
+    status: 'ready',
+    source: 'tab',
+    segments: [],
+    callouts: [],
+    trim: { start: 0, end: null },
+    thumbnail: '',
+    bytes: 0,
+    ...r,
+    schema: r.schema || SCHEMA,
+  };
 }
 
 function done(req) {
@@ -56,6 +85,7 @@ export function newRecording(fields = {}) {
     trim: { start: 0, end: null },
     thumbnail: '',
     bytes: 0,
+    schema: SCHEMA,
     ...fields,
   };
 }
@@ -73,7 +103,7 @@ export async function putRecording(rec) {
 }
 
 export async function getRecording(id) {
-  return done((await store('recordings')).get(id));
+  return withDefaults(await done((await store('recordings')).get(id)));
 }
 
 // Read, change and write in one transaction, so two updates at once cannot overwrite each other.
@@ -107,7 +137,7 @@ export async function updateRecording(id, patch) {
 }
 
 export async function listRecordings() {
-  const all = await done((await store('recordings')).getAll());
+  const all = (await done((await store('recordings')).getAll())).map(withDefaults);
   return all.sort((a, b) => b.createdAt - a.createdAt);
 }
 

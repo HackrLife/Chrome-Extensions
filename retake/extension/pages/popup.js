@@ -1,5 +1,8 @@
 import { ic, LOGO } from '../core/icons.js';
 import { fmtClock, escapeHtml } from '../core/format.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('popup');
 
 const app = document.getElementById('app');
 const DEFAULTS = {

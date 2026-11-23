@@ -2,6 +2,9 @@
 // recorder. It holds the recording state; the offscreen document holds the media.
 
 import { newRecording, putRecording, deleteRecording } from './core/db.js';
+import { logError, watchErrors } from './core/diagnostics.js';
+
+watchErrors('background');
 
 const IDLE = { status: 'idle' };
 let state = null;
@@ -51,8 +54,15 @@ async function ensureOffscreen() {
   });
 }
 
+// Tab recordings run in the offscreen document; window and screen recordings run in the small
+// picker window, because Chrome only lets the page that asked for them use them.
 async function closeOffscreen() {
   if (await hasOffscreen()) await chrome.offscreen.closeDocument().catch(() => {});
+  const { recorderWindowId } = await chrome.storage.session.get('recorderWindowId');
+  if (recorderWindowId != null) {
+    await chrome.storage.session.remove('recorderWindowId');
+    await chrome.windows.remove(recorderWindowId).catch(() => {});
+  }
 }
 
 async function rec(type, data = {}) {
@@ -86,18 +96,39 @@ async function removeOverlay(tabId) {
 
 // ---------- capture sources ----------
 
-function chooseDesktop(source) {
-  const sources = source === 'window' ? ['window'] : ['screen', 'audio'];
+// Chrome shows its screen picker only for a page, so a small Retake window asks for the choice.
+let picking = null;
+
+async function chooseDesktop(source) {
+  if (picking) picking.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
+  let base = null;
+  try {
+    base = await chrome.windows.getLastFocused();
+  } catch {}
+  const width = 420, height = 170;
+  const left = base ? Math.round(base.left + (base.width - width) / 2) : undefined;
+  const top = base ? Math.round(base.top + 120) : undefined;
   return new Promise((resolve, reject) => {
-    try {
-      chrome.desktopCapture.chooseDesktopMedia(sources, (streamId, options) => {
-        if (!streamId) return reject(Object.assign(new Error('cancelled'), { cancelled: true }));
-        resolve({ streamId, audio: !!options?.canRequestAudioTrack });
+    picking = { resolve, reject, windowId: null };
+    chrome.windows
+      .create({ url: chrome.runtime.getURL(`pages/picker.html#${source}`), type: 'popup', width, height, left, top, focused: true })
+      .then((w) => {
+        if (picking) picking.windowId = w.id;
+      })
+      .catch((e) => {
+        picking = null;
+        reject(e);
       });
-    } catch (e) {
-      reject(e);
-    }
   });
+}
+
+function picked({ streamId, audio, error }) {
+  const p = picking;
+  picking = null;
+  if (!p) return;
+  if (streamId) p.resolve({ streamId, audio: !!audio, windowId: p.windowId });
+  else if (error) p.reject(new Error(error));
+  else p.reject(Object.assign(new Error('cancelled'), { cancelled: true }));
 }
 
 // ---------- teleprompter window ----------
@@ -136,6 +167,15 @@ async function closePrompter() {
 }
 
 chrome.windows.onRemoved.addListener(async (id) => {
+  // Closing the picker window without choosing counts as cancelling.
+  if (picking && picking.windowId === id) setTimeout(() => picked({}), 300);
+  // Closing the recorder window mid-recording ends the recording; what was saved is kept.
+  const { recorderWindowId } = await chrome.storage.session.get('recorderWindowId');
+  if (id === recorderWindowId) {
+    await chrome.storage.session.remove('recorderWindowId');
+    const s = await getState();
+    if (['recording', 'paused', 'countdown', 'preparing'].includes(s.status)) finish().catch(fail);
+  }
   const { prompterWindowId } = await chrome.storage.session.get('prompterWindowId');
   if (id === prompterWindowId) chrome.storage.session.remove('prompterWindowId');
 });
@@ -147,15 +187,17 @@ async function start({ options, tabId, windowId, size }) {
   if (!['idle', 'presenting'].includes(s.status)) throw new Error('A recording is already running.');
   const source = options.source || 'tab';
   // Create the recorder first: a capture id expires a few seconds after it is issued.
-  await ensureOffscreen();
   let streamId, kind, wantAudio;
   try {
     if (source === 'tab') {
+      await ensureOffscreen();
       streamId = await chrome.tabCapture.getMediaStreamId({ targetTabId: tabId });
       kind = 'tab';
       wantAudio = options.tabAudio !== false;
     } else {
+      await closeOffscreen();
       const d = await chooseDesktop(source);
+      await chrome.storage.session.set({ recorderWindowId: d.windowId });
       streamId = d.streamId;
       kind = 'desktop';
       wantAudio = d.audio;
@@ -184,6 +226,12 @@ async function start({ options, tabId, windowId, size }) {
     await closeOffscreen();
     if (s.status === 'presenting') await setState({ error: e.message });
     throw new Error(e.message || 'Could not start recording.');
+  }
+  if (kind === 'desktop') {
+    const { recorderWindowId } = await chrome.storage.session.get('recorderWindowId');
+    if (recorderWindowId != null) await chrome.windows.update(recorderWindowId, { state: 'minimized' }).catch(() => {});
+    // Give the keyboard back to the browser window, so the shortcuts and the page work at once.
+    if (windowId != null) await chrome.windows.update(windowId, { focused: true }).catch(() => {});
   }
   await setState({
     status: 'preparing',
@@ -224,6 +272,10 @@ async function runCountdown(withCountdown) {
 async function begin() {
   const s = await getState();
   if (!['countdown', 'paused', 'preparing'].includes(s.status)) return;
+  // Hide the controls on a recorded tab first, so they are not in the opening frames.
+  if (s.source === 'tab' && s.tabId != null) {
+    await Promise.race([chrome.tabs.sendMessage(s.tabId, { type: 'hide-bar' }).catch(() => {}), new Promise((r) => setTimeout(r, 300))]);
+  }
   const res = await rec('begin', { retake: !!s.retakeNext });
   await setState({ status: 'recording', segmentStartedAt: Date.now(), currentSegmentId: res.segmentId, retakeNext: false, countdownEndsAt: null, dialog: null });
 }
@@ -253,9 +305,10 @@ async function resume() {
 
 async function requestRetake() {
   const s = await getState();
+  if (!['recording', 'paused'].includes(s.status)) return;
   if (s.status === 'recording') await pause();
   const now = await getState();
-  if (!now.segments.length) {
+  if (!now.segments?.length) {
     await setState({ dialog: null, notice: 'Nothing to retake yet.' });
     return;
   }
@@ -264,7 +317,8 @@ async function requestRetake() {
 
 async function confirmRetake({ countdown = true } = {}) {
   const s = await getState();
-  const last = s.segments[s.segments.length - 1];
+  if (s.status !== 'paused') return;
+  const last = s.segments?.[s.segments.length - 1];
   if (!last) return;
   await rec('discard', { segmentId: last.id });
   await setState({ segments: s.segments.slice(0, -1), retakeNext: true, dialog: null, status: 'paused' });
@@ -281,18 +335,25 @@ async function finish() {
   try {
     result = await rec('finish');
   } catch (e) {
-    console.warn('Retake finish', e);
+    logError('finish', e);
   }
   await closeOffscreen();
   await removeOverlay(s.tabId);
   await closePrompter();
   const id = s.recordingId;
   await setState({ ...IDLE }, true);
+  if (!id) return;
   if (result && result.segments > 0) {
     await chrome.tabs.create({ url: chrome.runtime.getURL(`pages/editor.html#${id}`) });
-  } else if (id) {
-    await deleteRecording(id).catch(() => {});
+    return;
   }
+  // If the recorder failed to report back, never throw footage away: the library recovers
+  // whatever was saved, the same way it does after a crash.
+  if (!result) {
+    await chrome.tabs.create({ url: chrome.runtime.getURL('pages/library.html') });
+    return;
+  }
+  await deleteRecording(id).catch(() => {});
 }
 
 async function cancel() {
@@ -333,7 +394,7 @@ async function screenshot() {
 }
 
 async function fail(e) {
-  console.warn('Retake', e);
+  logError('background', e);
   await setState({ error: e?.message || String(e) });
 }
 
@@ -360,6 +421,7 @@ const handlers = {
   'clear-notice': () => setState({ notice: null, error: null }),
   'source-ended': () => finish(),
   'open-prompter': (m) => openPrompter({ edit: !!m.edit, windowId: m.windowId }),
+  picked: (m) => picked(m),
 };
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -368,7 +430,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (!h) return false;
   Promise.resolve(h(msg, sender))
     .then((r) => sendResponse(r && typeof r === 'object' && 'ok' in r ? r : { ok: true, ...(r || {}) }))
-    .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }));
+    .catch((e) => {
+      logError(msg.type, e);
+      sendResponse({ ok: false, error: e?.message || String(e) });
+    });
   return true;
 });
 

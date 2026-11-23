@@ -16,7 +16,7 @@ The web app asks you to sign up with your email address before you record. We ke
 - **Your email address**, so you can sign in with an emailed link and so we know who uses Retake.
 - **Your email choice.** We send you tips, new features and offers from Retake and other HackrLife tools only if you tick the box to say yes. You can unsubscribe from any of those emails at any time.
 
-Sign-in emails are sent for you to sign in and are not marketing. Your account is held in our HackrLife apps account system and is never sold. To delete your account, open an issue at https://github.com/HackrLife/chrome-extensions/issues or email dev@hackrlife.com.
+Sign-in emails are sent for you to sign in and are not marketing. Your account is held in our HackrLife apps account system and is never sold. To delete your account, open an issue at https://github.com/HackrLife/Chrome-Extensions/issues or email dev@hackrlife.com.
 
 ## What Retake does not do
 
@@ -25,6 +25,10 @@ Sign-in emails are sent for you to sign in and are not marketing. Your account i
 - It does not use analytics, tracking or advertising, and it contains no third-party code that does.
 - It does not read the content of the web pages you visit. The tools shown on a page only draw on top of it.
 - The key display shows keyboard shortcuts such as Ctrl + C. It never shows ordinary typing, and it is switched off in password fields.
+
+## Problem reports
+
+Retake keeps its last few error messages on your computer, so a problem report can include them. They contain no page content and no recordings. When you choose **Report a problem**, Retake opens a GitHub issue already filled in with those messages, your Retake and Chrome versions and your operating system. You can read and change everything before you send it, and nothing is sent unless you submit the issue yourself. GitHub issues are public.
 
 ## Microphone, camera and screen
 
@@ -40,4 +44,4 @@ If this policy changes, the new version will be published here with a new date.
 
 ## Contact
 
-Questions about privacy: open an issue at https://github.com/HackrLife/chrome-extensions/issues.
+Questions about privacy: open an issue at https://github.com/HackrLife/Chrome-Extensions/issues.

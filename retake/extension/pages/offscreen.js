@@ -3,6 +3,9 @@
 // makes "retake the last segment" possible: the last segment is simply thrown away.
 
 import { addChunk, deleteSegment, getRecording, updateRecording, uid } from '../core/db.js';
+import { logError, watchErrors } from '../core/diagnostics.js';
+
+watchErrors('recorder');
 
 let source = null; // captured tab or screen
 let mic = null;
@@ -70,6 +73,9 @@ async function prepare({ kind, streamId, wantAudio, micId, recordingId: id, size
   }
 
   audioCtx = new AudioContext();
+  // A normal page (the window recorder) may start its audio suspended until it is allowed to play.
+  if (audioCtx.state === 'suspended') await audioCtx.resume().catch(() => {});
+  if (audioCtx.state !== 'running') logError('recorder audio', `Audio is ${audioCtx.state}`);
   const dest = audioCtx.createMediaStreamDestination();
   let hasAudio = false;
   if (source.getAudioTracks().length) {
@@ -215,6 +221,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   if (!h) return false;
   h(msg)
     .then((r) => sendResponse(r?.ok === undefined ? { ok: true, ...r } : r))
-    .catch((e) => sendResponse({ ok: false, error: e?.message || String(e) }));
+    .catch((e) => {
+      logError(`recorder ${msg.type}`, e);
+      sendResponse({ ok: false, error: e?.message || String(e) });
+    });
   return true;
 });

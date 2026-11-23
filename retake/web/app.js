@@ -8,6 +8,10 @@ import { mountPrompter, wordCount, readingMinutes } from './core/prompter.js';
 import { openStudio } from './core/studio.js';
 import { openPresenter } from './core/presenter.js';
 import { ACCEPT, listFiles, addFiles, removeFile, buildDeck, releaseDeck } from './core/media.js';
+import { reportURL, watchErrors } from './core/diagnostics.js';
+
+watchErrors('web');
+reportURL().then((u) => { const a = document.getElementById('reportLink'); if (a) a.href = u; });
 
 const $ = (s, root = document) => root.querySelector(s);
 const TICKER = new URL('./core/ticker.js', import.meta.url).href;
@@ -171,7 +175,7 @@ function renderSignup(el) {
       <button class="btn rec big" type="submit" id="sbtn">Email me a sign-in link</button>
     </form>
     <div class="perks"><span>${ic('check', 14)} No password</span><span>${ic('check', 14)} No card</span><span>${ic('check', 14)} No time limit</span><span>${ic('check', 14)} No watermark</span></div>
-    <p class="fine2">By signing up you agree to our <a href="https://github.com/HackrLife/chrome-extensions/blob/main/retake/docs/privacy.md" target="_blank" rel="noopener">privacy notice</a>.</p>
+    <p class="fine2">By signing up you agree to our <a href="privacy.html" target="_blank" rel="noopener">privacy notice</a>.</p>
   </div>`;
   $('#sf').onsubmit = (e) => {
     e.preventDefault();

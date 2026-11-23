@@ -1,5 +1,8 @@
 // Camera-only and voice-only recordings, with the script under the camera.
 import { openStudio } from '../core/studio.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('studio');
 
 const kind = location.hash === '#voice' ? 'voice' : 'camera';
 const { prefs = {}, script = {} } = await chrome.storage.local.get(['prefs', 'script']);

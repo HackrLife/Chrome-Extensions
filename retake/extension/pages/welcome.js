@@ -1,4 +1,7 @@
 import { ic, LOGO } from '../core/icons.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('welcome');
 
 document.getElementById('logo').innerHTML = LOGO(30);
 const PIN = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4h6l-1 6 3 3H7l3-3z"/><path d="M12 13v7"/></svg>';

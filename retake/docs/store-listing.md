@@ -49,7 +49,7 @@ Use the drawing tools and spotlight on a live call, with nothing recorded.
 Private by design
 Recordings are stored in Chrome on your computer and saved to your Downloads folder when you export. The extension collects no data and contains no analytics.
 
-Retake is free. Questions and bug reports: https://github.com/HackrLife/chrome-extensions/issues
+Retake is free. Questions and bug reports: https://github.com/HackrLife/Chrome-Extensions/issues
 
 **Graphic assets** (all in `docs/store-assets/`):
 - Store icon: the 128 × 128 icon is in the package
@@ -59,7 +59,7 @@ Retake is free. Questions and bug reports: https://github.com/HackrLife/chrome-e
 
 **Additional fields:**
 - Homepage URL: https://chrome-extensions-retake.vercel.app
-- Support URL: https://github.com/HackrLife/chrome-extensions/issues
+- Support URL: https://github.com/HackrLife/Chrome-Extensions/issues
 - Mature content: No
 
 ## Privacy practices tab

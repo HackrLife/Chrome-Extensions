@@ -6,6 +6,11 @@ import { totalDuration, segmentStarts, trimRange, locate, clamp, measureDuration
 import { drawFrame, viewAt, createCallout, calloutBounds, fromCanvas, toCanvas, COLORS, TYPE_LABEL, isActive } from '../core/callouts.js';
 import { exportRecording, composeFrame, estimateBytes, pickMime, GIF_MAX_SECONDS } from '../core/exporter.js';
 import { saveFile } from '../core/save.js';
+import { emit } from '../core/hooks.js';
+import '../core/addons.js';
+import { watchErrors } from '../core/diagnostics.js';
+
+watchErrors('editor');
 
 const $ = (s) => document.querySelector(s);
 const IS_EXTENSION = !!globalThis.chrome?.runtime?.id;
@@ -943,9 +948,11 @@ async function runExport() {
     m.innerHTML = `<div class="scrim"><div class="panel modal" role="dialog" aria-label="Export finished">
       <div class="row" style="gap:12px;margin-bottom:10px"><div style="width:40px;height:40px;border-radius:12px;background:var(--green-soft);color:var(--green);display:grid;place-items:center">${ic('check', 22, 2.4)}</div><div class="h" style="font-size:19px">Saved to Downloads</div></div>
       <p class="muted" style="font-size:13.5px;line-height:1.5">Retake/${escapeHtml(name)} · ${fmtBytes(res.blob.size)}${res.fellBack ? '<br>This Chrome version can’t make MP4, so it was saved as WebM.' : ''}</p>
+      <div id="afterExport"></div>
       <div class="row" style="justify-content:flex-end;margin-top:18px;gap:10px"><button class="btn ghost" id="again">Export another version</button><button class="btn dark" data-x>Done</button></div>
     </div></div>`;
     $('#again').onclick = exportModal;
+    emit('export-finished', { recordingId: rec.id, format: res.ext, layout, bytes: res.blob.size, slot: $('#afterExport') });
   } catch (e) {
     if (e.name === 'AbortError') {
       m.innerHTML = '';

@@ -2,6 +2,15 @@
 
 ## 0.1.0 (in development)
 
+- Extension: Window and Screen recording now start. Chrome only lets a page use the screen it asked for, so a small Retake window shows the picker and records, minimised.
+- Extension: the controls are hidden before the recorder starts, so they are not in a tab recording's first frames.
+- Extension: if the recorder fails to report back when you finish, the recording is kept and opened in My recordings, instead of being thrown away.
+- Extension: retake and finish shortcuts pressed when nothing is recording no longer leave an error behind.
+- Report a problem: opens a GitHub issue filled in with the versions, the system and Retake's recent error messages, which are kept only on your computer.
+- Older recordings keep working after updates: missing fields are filled in when read, and the database can be upgraded while Retake pages are open.
+- Groundwork, switched off: a place for a future email sign-up and Retake Pro features (see docs/future-features.md).
+- Tests: end-to-end suites for the extension and the web app.
+
 - Extension, ready for the Chrome Web Store: the package now leaves out the web app's sign-in, slide presenter and PDF reader, so it contains no network code.
 - Extension: the teleprompter window keeps its size on Linux systems that opened it full screen over the page.
 - Editor: a callout shows straight away when you add it, instead of starting invisible at the beginning of its fade.

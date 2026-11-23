@@ -754,7 +754,19 @@
     delete window.__retakeOverlay;
   }
 
-  function onMessage(msg) {
+  function onMessage(msg, _sender, reply) {
+    if (msg?.type === 'hide-bar') {
+      // Sent just before the recorder starts, so the first frames never show the controls.
+      if (!drawing && !pointerNearBar()) {
+        clearTimeout(idleTimer);
+        bar.style.transition = 'none';
+        bar.classList.add('hidden');
+        void bar.offsetWidth;
+        bar.style.transition = '';
+      }
+      requestAnimationFrame(() => requestAnimationFrame(() => reply?.({ ok: true })));
+      return true;
+    }
     if (msg?.type === 'state') update(msg.state);
     else if (msg?.type === 'teardown') teardown();
     else if (msg?.type === 'toggle-draw') setDrawing(!drawing);
