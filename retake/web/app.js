@@ -19,7 +19,7 @@ const SOURCES = {
 };
 const studioMode = () => prefs.source === 'camera' || prefs.source === 'voice';
 const camOn = () => prefs.source === 'camera' || (prefs.cam && prefs.source !== 'voice');
-const scriptFor = () => (prefs.prompter && prefs.script.trim() ? { text: prefs.script, speed: prefs.speed, size: 28 } : null);
+const scriptFor = () => (prefs.script.trim() ? { text: prefs.script, speed: prefs.speed, size: 28 } : null);
 
 function readPrefs() {
   try {
@@ -153,9 +153,10 @@ function renderSetup(el) {
       <div class="devrow">${deviceSelect('audioinput', 'micSel', prefs.micId, prefs.mic || prefs.source === 'voice')}${prefs.source === 'voice' ? '' : `<button class="toggle ${prefs.mic ? 'on' : ''}" id="micT" aria-label="Microphone on or off" aria-pressed="${prefs.mic}"></button>`}</div></div>
     ${prefs.source === 'voice' ? '' : `<div class="section"><div class="tlabel">${prefs.source === 'camera' ? 'Camera' : 'Camera bubble'}</div>
       <div class="devrow">${camOn() ? '<div class="selfie" id="selfSlot"></div>' : ''}${deviceSelect('videoinput', 'camSel', prefs.camId, camOn())}${prefs.source === 'camera' ? '' : `<button class="toggle ${prefs.cam ? 'on' : ''}" id="camT" aria-label="Camera on or off" aria-pressed="${prefs.cam}"></button>`}</div></div>`}
-    <div class="section"><div class="tlabel row" style="justify-content:space-between">Teleprompter<button class="toggle ${prefs.prompter ? 'on' : ''}" id="prT" aria-label="Teleprompter on or off" aria-pressed="${prefs.prompter}"></button></div>
-      ${prefs.prompter ? `<textarea class="script" id="script" rows="5" placeholder="Paste or write your script. ${studio ? 'It scrolls under your camera' : 'It scrolls in the floating window'} while you record and is never in the video.">${escapeHtml(prefs.script)}</textarea>
-      <div class="row prrow"><span class="lbl2">Speed</span><div class="seg">${[[0.75, 'Slow'], [1, 'Normal'], [1.5, 'Fast']].map(([v, l]) => `<button class="${prefs.speed === v ? 'on' : ''}" data-speed="${v}">${l}</button>`).join('')}</div><span class="words" id="words"></span></div>` : '<p class="hint">Read your script while you record. Only you see it.</p>'}
+    <div class="section prompt-box ${prefs.script.trim() ? 'on' : ''}">
+      <div class="tlabel row" style="justify-content:space-between">${ic('text', 14)}&nbsp;Teleprompter<span class="words" id="words"></span></div>
+      <textarea class="script" id="script" rows="${prefs.script.trim() ? 5 : 2}" placeholder="Optional: paste your script here. ${studio ? 'It scrolls under your camera' : 'It scrolls in the floating window'} while you record, and it is never in the video.">${escapeHtml(prefs.script)}</textarea>
+      ${prefs.script.trim() ? `<div class="row prrow"><span class="lbl2">Speed</span><div class="seg">${[[0.75, 'Slow'], [1, 'Normal'], [1.5, 'Fast']].map(([v, l]) => `<button class="${prefs.speed === v ? 'on' : ''}" data-speed="${v}">${l}</button>`).join('')}</div><button class="mini" id="clearScript">Clear</button></div>` : ''}
     </div>
     <div class="section row" style="gap:8px;flex-wrap:wrap">
       ${studio ? '' : `<button class="chip ${prefs.sound ? 'on' : ''}" id="soundC">${ic('speaker', 14)} Include sound</button>`}
@@ -192,15 +193,28 @@ function renderSetup(el) {
     render();
     ensureCam();
   });
-  on('#prT', () => ((prefs.prompter = !prefs.prompter), savePrefs(), render()));
+  on('#clearScript', () => ((prefs.script = ''), savePrefs(), render()));
   el.querySelectorAll('[data-speed]').forEach((b) => (b.onclick = () => ((prefs.speed = Number(b.dataset.speed)), savePrefs(), render())));
   const ta = $('#script');
   if (ta) {
     const words = () => {
       const n = wordCount(ta.value);
-      $('#words').textContent = n ? `${n} words · about ${readingMinutes(ta.value, prefs.speed)} min` : '';
+      $('#words').textContent = n ? `On · ${n} words · about ${readingMinutes(ta.value, prefs.speed)} min` : 'Off';
     };
-    ta.oninput = () => ((prefs.script = ta.value), savePrefs(), words());
+    ta.oninput = () => {
+      const had = !!prefs.script.trim();
+      prefs.script = ta.value;
+      savePrefs();
+      words();
+      if (had !== !!prefs.script.trim()) {
+        // Show or hide the speed row without losing the cursor.
+        const pos = ta.selectionStart;
+        render();
+        const t = $('#script');
+        t.focus();
+        t.setSelectionRange(pos, pos);
+      }
+    };
     words();
   }
   on('#soundC', () => ((prefs.sound = !prefs.sound), savePrefs(), render()));
@@ -263,6 +277,7 @@ function renderReady(el) {
     ${previewBox()}
     ${floatBlocker ? `<div class="notice">${floatBlocker}</div>` : ''}
     ${notices()}
+    ${scriptFor() ? `<div class="note" style="margin:0 0 12px">${ic('text', 14)}<span>Teleprompter on: your script (${wordCount(prefs.script)} words) scrolls in the floating window while you record.</span></div>` : ''}
     <button class="btn rec big" id="go">${REC_DOT} Start recording</button>
     <div class="note">${ic('help', 14)}<span>${floatNote}${camNote} Shortcuts: Alt+Shift+K pause, Alt+Shift+U retake, Alt+Shift+S finish.</span></div>
     <button class="link" id="cancel">Cancel</button>`;
